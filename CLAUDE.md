@@ -9,7 +9,7 @@ Solução: `MarkdownEditor.slnx` com um único projeto, `MarkdownEditor/Markdown
 ## Arquitetura
 
 - **`Program.cs`**: `Main(string[] args)` pega o primeiro argumento que seja um arquivo existente e passa para `new frmEditor(arquivoInicial)`. É assim que funciona o duplo clique no Windows (o Windows passa o caminho como `%1`). O programa **não** grava associação de arquivos no Registro — isso foi decidido explicitamente. Quem registra é o **instalador** (ver "Geração do Instalador"); sem o instalador, a associação é feita manualmente pelo usuário via "Abrir com".
-- **`frmEditor`**: `ToolStrip tsrNavegacao` (botões `tsbVoltar`/`tsbAvancar`) no topo e `SplitContainer spcPrincipal` com:
+- **`frmEditor`**: `ToolStrip tsrNavegacao` (botões `tsbArvore`, `tsbVoltar`/`tsbAvancar`) no topo e `SplitContainer spcPrincipal` com:
   - `Panel1`: `TreeView trvPastas` com `ImageList imlIcones`.
   - `Panel2`: `WebView2 wvwPreview` (pacote NuGet `Microsoft.Web.WebView2`).
 - **Árvore** (`frmEditor.cs`):
@@ -18,6 +18,7 @@ Solução: `MarkdownEditor.slnx` com um único projeto, `MarkdownEditor/Markdown
   - Carregamento lazy: nó de pasta nasce com um filho fictício (`"..."`, sem `Tag`), substituído no `BeforeExpand` por subpastas + arquivos filtrados por `ExtensoesSuportadas`. Pastas ocultas/sistema são ignoradas; `UnauthorizedAccessException`/`IOException` resultam em nó vazio.
   - Ícones: `SystemIcons.GetStockIcon` para pastas/unidades e `Icon.ExtractAssociatedIcon` com cache por extensão para arquivos.
   - `SelecionarNaArvore(caminho)` expande a árvore até o arquivo recebido por parâmetro.
+  - Botão `tsbArvore` ("Esconder árvore"/"Mostrar árvore"): `AlternarArvore` alterna `spcPrincipal.Panel1Collapsed`, guarda a largura em `_larguraArvore` ao esconder e a restaura ao mostrar, respeitando `LarguraMinimaArvore` (50 px, também aplicada em `Panel1MinSize`).
 - **Visualizador**:
   - `wwwroot/preview-md-json-xml.html` é uma **cópia** do projeto `D:\Fontes\preview-html` (não é link). Copiado para a saída via `<Content Include="wwwroot\**" CopyToOutputDirectory="PreserveNewest" />`.
   - Servido por `SetVirtualHostNameToFolderMapping("preview.local", ...)` em `https://preview.local/preview-md-json-xml.html` (contexto seguro para `navigator.clipboard` e `localStorage` persistente).

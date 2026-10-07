@@ -17,6 +17,9 @@ namespace MarkdownEditor
         private const string MensagemNavegarAvancar = "navegar:avancar";
         private const string NomeTextoColado = "texto colado";
         private const int LimiteHistorico = 10;
+        private const int LarguraMinimaArvore = 50;
+        private const string TextoEsconderArvore = "◧ Esconder árvore";
+        private const string TextoMostrarArvore = "◨ Mostrar árvore";
         private const int WM_APPCOMMAND = 0x0319;
         private const int APPCOMMAND_BROWSER_BACKWARD = 1;
         private const int APPCOMMAND_BROWSER_FORWARD = 2;
@@ -86,6 +89,8 @@ namespace MarkdownEditor
         private EntradaHistorico? _entradaAtual;
         private bool _navegandoHistorico;
 
+        private int _larguraArvore;
+
         private readonly string? _arquivoInicial;
 
         public frmEditor() : this(null)
@@ -95,6 +100,7 @@ namespace MarkdownEditor
         public frmEditor(string? arquivoInicial)
         {
             InitializeComponent();
+            spcPrincipal.Panel1MinSize = LarguraMinimaArvore;
             _arquivoInicial = arquivoInicial;
         }
 
@@ -621,6 +627,24 @@ namespace MarkdownEditor
 
         private static string ObterNomeEntrada(EntradaHistorico entrada) =>
             entrada.Caminho != null ? Path.GetFileName(entrada.Caminho) : NomeTextoColado;
+
+        private void tsbArvore_Click(object? sender, EventArgs e) => AlternarArvore();
+
+        private void AlternarArvore()
+        {
+            if (spcPrincipal.Panel1Collapsed)
+            {
+                spcPrincipal.Panel1Collapsed = false;
+                spcPrincipal.SplitterDistance = Math.Max(_larguraArvore, LarguraMinimaArvore);
+                tsbArvore.Text = TextoEsconderArvore;
+            }
+            else
+            {
+                _larguraArvore = spcPrincipal.SplitterDistance;
+                spcPrincipal.Panel1Collapsed = true;
+                tsbArvore.Text = TextoMostrarArvore;
+            }
+        }
 
         private void tsbVoltar_Click(object? sender, EventArgs e) => Voltar();
 

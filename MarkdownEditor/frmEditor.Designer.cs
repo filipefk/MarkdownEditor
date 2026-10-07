@@ -35,6 +35,8 @@ namespace MarkdownEditor
             imlIcones = new ImageList(components);
             wvwPreview = new Microsoft.Web.WebView2.WinForms.WebView2();
             tsrNavegacao = new ToolStrip();
+            tsbArvore = new ToolStripButton();
+            tssArvore = new ToolStripSeparator();
             tsbVoltar = new ToolStripButton();
             tsbAvancar = new ToolStripButton();
             ((System.ComponentModel.ISupportInitialize)spcPrincipal).BeginInit();
@@ -98,11 +100,24 @@ namespace MarkdownEditor
             // tsrNavegacao
             //
             tsrNavegacao.GripStyle = ToolStripGripStyle.Hidden;
-            tsrNavegacao.Items.AddRange(new ToolStripItem[] { tsbVoltar, tsbAvancar });
+            tsrNavegacao.Items.AddRange(new ToolStripItem[] { tsbArvore, tssArvore, tsbVoltar, tsbAvancar });
             tsrNavegacao.Location = new Point(0, 0);
             tsrNavegacao.Name = "tsrNavegacao";
             tsrNavegacao.Size = new Size(1080, 25);
             tsrNavegacao.TabIndex = 1;
+            //
+            // tsbArvore
+            //
+            tsbArvore.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            tsbArvore.Name = "tsbArvore";
+            tsbArvore.Size = new Size(110, 22);
+            tsbArvore.Text = "◧ Esconder árvore";
+            tsbArvore.Click += tsbArvore_Click;
+            //
+            // tssArvore
+            //
+            tssArvore.Name = "tssArvore";
+            tssArvore.Size = new Size(6, 25);
             //
             // tsbVoltar
             //
@@ -153,6 +168,8 @@ namespace MarkdownEditor
         private ImageList imlIcones;
         private Microsoft.Web.WebView2.WinForms.WebView2 wvwPreview;
         private ToolStrip tsrNavegacao;
+        private ToolStripButton tsbArvore;
+        private ToolStripSeparator tssArvore;
         private ToolStripButton tsbVoltar;
         private ToolStripButton tsbAvancar;
     }
