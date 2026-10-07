@@ -51,8 +51,14 @@ namespace MarkdownEditor
             // 
             spcPrincipal.Dock = DockStyle.Fill;
             spcPrincipal.FixedPanel = FixedPanel.Panel1;
+            spcPrincipal.IsSplitterFixed = true;
             spcPrincipal.Location = new Point(0, 0);
             spcPrincipal.Name = "spcPrincipal";
+            spcPrincipal.MouseCaptureChanged += spcPrincipal_MouseCaptureChanged;
+            spcPrincipal.MouseDown += spcPrincipal_MouseDown;
+            spcPrincipal.MouseLeave += spcPrincipal_MouseLeave;
+            spcPrincipal.MouseMove += spcPrincipal_MouseMove;
+            spcPrincipal.MouseUp += spcPrincipal_MouseUp;
             // 
             // spcPrincipal.Panel1
             // 

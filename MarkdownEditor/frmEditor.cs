@@ -130,6 +130,7 @@ namespace MarkdownEditor
         private bool _navegandoHistorico;
 
         private int _larguraArvore;
+        private int? _deslocamentoArraste;
 
         private bool? _temaEscuro;
 
@@ -694,6 +695,51 @@ namespace MarkdownEditor
                 tsbArvore.Text = TextoMostrarArvore;
             }
         }
+
+        // O arraste nativo do SplitContainer desenha a barra via GDI (XOR), que não aparece
+        // sobre o WebView2; por isso o arraste é tratado aqui, redimensionando ao vivo.
+        private void spcPrincipal_MouseDown(object? sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left && spcPrincipal.SplitterRectangle.Contains(e.Location))
+                _deslocamentoArraste = e.X - spcPrincipal.SplitterDistance;
+        }
+
+        private void spcPrincipal_MouseMove(object? sender, MouseEventArgs e)
+        {
+            if (_deslocamentoArraste is int deslocamento)
+            {
+                var maximo = spcPrincipal.Width - spcPrincipal.SplitterWidth - spcPrincipal.Panel2MinSize;
+                var novaDistancia = Math.Clamp(e.X - deslocamento, spcPrincipal.Panel1MinSize, Math.Max(maximo, spcPrincipal.Panel1MinSize));
+
+                if (novaDistancia != spcPrincipal.SplitterDistance)
+                    spcPrincipal.SplitterDistance = novaDistancia;
+            }
+
+            AtualizarCursorDivisoria(e.Location);
+        }
+
+        private void spcPrincipal_MouseUp(object? sender, MouseEventArgs e)
+        {
+            _deslocamentoArraste = null;
+            AtualizarCursorDivisoria(e.Location);
+        }
+
+        // O Cursor do SplitContainer é herdado pelos painéis filhos; ao sair para a árvore ou o
+        // preview ele precisa voltar ao padrão, senão o VSplit continua aparecendo neles.
+        private void spcPrincipal_MouseLeave(object? sender, EventArgs e)
+        {
+            if (_deslocamentoArraste == null)
+                spcPrincipal.Cursor = Cursors.Default;
+        }
+
+        private void AtualizarCursorDivisoria(Point posicao)
+        {
+            spcPrincipal.Cursor = _deslocamentoArraste != null || spcPrincipal.SplitterRectangle.Contains(posicao)
+                ? Cursors.VSplit
+                : Cursors.Default;
+        }
+
+        private void spcPrincipal_MouseCaptureChanged(object? sender, EventArgs e) => _deslocamentoArraste = null;
 
         private void tsbVoltar_Click(object? sender, EventArgs e) => Voltar();
 
