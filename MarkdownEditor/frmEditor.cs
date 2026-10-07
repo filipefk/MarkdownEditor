@@ -11,8 +11,15 @@ namespace MarkdownEditor
         private const string TextoNoFicticio = "...";
         private const string TituloPadrao = "Visualizador e editor de Markdown";
         private const string MensagemArquivoSolto = "arquivoSolto";
-        private const string MensagemTextoColado = "textoColado";
+        private const string PrefixoMensagemTextoColado = "textoColado:";
         private const string PrefixoMensagemLink = "abrirLink:";
+        private const string MensagemNavegarVoltar = "navegar:voltar";
+        private const string MensagemNavegarAvancar = "navegar:avancar";
+        private const string NomeTextoColado = "texto colado";
+        private const int LimiteHistorico = 10;
+        private const int WM_APPCOMMAND = 0x0319;
+        private const int APPCOMMAND_BROWSER_BACKWARD = 1;
+        private const int APPCOMMAND_BROWSER_FORWARD = 2;
 
         private const string ScriptMonitorarEventos = """
             window.addEventListener('drop', (e) => {
@@ -21,8 +28,26 @@ namespace MarkdownEditor
             });
             window.addEventListener('paste', (e) => {
                 const texto = (e.clipboardData || window.clipboardData).getData('text');
-                if (texto && texto.trim().length > 0) window.chrome.webview.postMessage('textoColado');
+                if (texto && texto.trim().length > 0) window.chrome.webview.postMessage('textoColado:' + texto);
             });
+            const botaoNavegacao = (e) => e.button === 3 ? 'navegar:voltar' : e.button === 4 ? 'navegar:avancar' : null;
+            window.addEventListener('mousedown', (e) => {
+                if (botaoNavegacao(e)) e.preventDefault();
+            }, true);
+            window.addEventListener('mouseup', (e) => {
+                const mensagem = botaoNavegacao(e);
+                if (!mensagem) return;
+                e.preventDefault();
+                window.chrome.webview.postMessage(mensagem);
+            }, true);
+            window.addEventListener('keydown', (e) => {
+                let mensagem = null;
+                if (e.key === 'BrowserBack' || (e.altKey && e.key === 'ArrowLeft')) mensagem = 'navegar:voltar';
+                else if (e.key === 'BrowserForward' || (e.altKey && e.key === 'ArrowRight')) mensagem = 'navegar:avancar';
+                if (!mensagem) return;
+                e.preventDefault();
+                window.chrome.webview.postMessage(mensagem);
+            }, true);
             document.addEventListener('change', (e) => {
                 const alvo = e.target;
                 if (!(alvo instanceof HTMLInputElement) || alvo.type !== 'file') return;
@@ -49,10 +74,17 @@ namespace MarkdownEditor
 
         private record NoArvore(string Caminho, bool EhArquivo);
 
+        private record EntradaHistorico(string? Caminho, string? Texto);
+
         private bool _previewPronto;
         private string? _arquivoPendente;
         private string? _arquivoAtual;
         private bool _ignorarSelecao;
+
+        private readonly LinkedList<EntradaHistorico> _historicoVoltar = new();
+        private readonly LinkedList<EntradaHistorico> _historicoAvancar = new();
+        private EntradaHistorico? _entradaAtual;
+        private bool _navegandoHistorico;
 
         private readonly string? _arquivoInicial;
 
@@ -70,6 +102,7 @@ namespace MarkdownEditor
         {
             CarregarIcones();
             CarregarRaizes();
+            AtualizarBotoesNavegacao();
 
             if (_arquivoInicial != null)
             {
@@ -353,8 +386,22 @@ namespace MarkdownEditor
                 return;
             }
 
+            if (mensagem != null && mensagem.StartsWith(PrefixoMensagemTextoColado, StringComparison.Ordinal))
+            {
+                RegistrarTextoColado(mensagem[PrefixoMensagemTextoColado.Length..]);
+                return;
+            }
+
             switch (mensagem)
             {
+                case MensagemNavegarVoltar:
+                    Voltar();
+                    break;
+
+                case MensagemNavegarAvancar:
+                    Avancar();
+                    break;
+
                 case MensagemArquivoSolto:
                     var caminho = e.AdditionalObjects.FirstOrDefault() switch
                     {
@@ -366,11 +413,27 @@ namespace MarkdownEditor
                         PosicionarArquivoSolto(caminho);
                     break;
 
-                case MensagemTextoColado:
-                    trvPastas.SelectedNode = null;
-                    _arquivoAtual = null;
-                    Text = TituloPadrao;
-                    break;
+            }
+        }
+
+        private void RegistrarTextoColado(string texto)
+        {
+            LimparSelecaoArvore();
+            _arquivoAtual = null;
+            Text = TituloPadrao;
+            RegistrarNoHistorico(new EntradaHistorico(null, texto));
+        }
+
+        private void LimparSelecaoArvore()
+        {
+            _ignorarSelecao = true;
+            try
+            {
+                trvPastas.SelectedNode = null;
+            }
+            finally
+            {
+                _ignorarSelecao = false;
             }
         }
 
@@ -449,16 +512,7 @@ namespace MarkdownEditor
             if (SelecionarNaArvore(caminho))
                 return;
 
-            _ignorarSelecao = true;
-            try
-            {
-                trvPastas.SelectedNode = null;
-            }
-            finally
-            {
-                _ignorarSelecao = false;
-            }
-
+            LimparSelecaoArvore();
             await ExibirArquivoAsync(caminho);
         }
 
@@ -490,16 +544,16 @@ namespace MarkdownEditor
 
             _arquivoAtual = caminho;
             Text = $"{Path.GetFileName(caminho)} - {TituloPadrao}";
+            RegistrarNoHistorico(new EntradaHistorico(caminho, null));
         }
 
-        private async Task ExibirArquivoAsync(string caminho)
+        private async Task<bool> ExibirArquivoAsync(string caminho, bool registrarHistorico = true)
         {
             try
             {
                 var texto = await File.ReadAllTextAsync(caminho);
                 var nome = Path.GetFileName(caminho);
-                var script = $"renderContent({JsonSerializer.Serialize(texto)}, {JsonSerializer.Serialize(nome)});";
-                await wvwPreview.ExecuteScriptAsync(script);
+                await RenderizarAsync(texto, nome);
                 _arquivoAtual = caminho;
                 Text = $"{nome} - {TituloPadrao}";
             }
@@ -507,7 +561,167 @@ namespace MarkdownEditor
             {
                 MessageBox.Show(this, $"Não foi possível abrir o arquivo:\n{caminho}\n\n{ex.Message}",
                     Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
             }
+
+            if (registrarHistorico)
+                RegistrarNoHistorico(new EntradaHistorico(caminho, null));
+            return true;
+        }
+
+        private async Task RenderizarAsync(string texto, string nome)
+        {
+            var script = $"renderContent({JsonSerializer.Serialize(texto)}, {JsonSerializer.Serialize(nome)});";
+            await wvwPreview.ExecuteScriptAsync(script);
+        }
+
+        private static bool MesmaEntrada(EntradaHistorico? a, EntradaHistorico? b)
+        {
+            if (a == null || b == null)
+                return false;
+
+            if (a.Caminho != null || b.Caminho != null)
+                return string.Equals(a.Caminho, b.Caminho, StringComparison.OrdinalIgnoreCase);
+
+            return string.Equals(a.Texto, b.Texto, StringComparison.Ordinal);
+        }
+
+        private void RegistrarNoHistorico(EntradaHistorico entrada)
+        {
+            if (MesmaEntrada(entrada, _entradaAtual))
+                return;
+
+            if (_entradaAtual != null)
+                Empilhar(_historicoVoltar, _entradaAtual);
+
+            _historicoAvancar.Clear();
+            _entradaAtual = entrada;
+            AtualizarBotoesNavegacao();
+        }
+
+        private static void Empilhar(LinkedList<EntradaHistorico> pilha, EntradaHistorico entrada)
+        {
+            pilha.AddLast(entrada);
+            while (pilha.Count > LimiteHistorico)
+                pilha.RemoveFirst();
+        }
+
+        private void AtualizarBotoesNavegacao()
+        {
+            tsbVoltar.Enabled = _historicoVoltar.Count > 0;
+            tsbVoltar.ToolTipText = _historicoVoltar.Last != null
+                ? $"Voltar para {ObterNomeEntrada(_historicoVoltar.Last.Value)} (Alt+←)"
+                : "Voltar (Alt+←)";
+
+            tsbAvancar.Enabled = _historicoAvancar.Count > 0;
+            tsbAvancar.ToolTipText = _historicoAvancar.Last != null
+                ? $"Avançar para {ObterNomeEntrada(_historicoAvancar.Last.Value)} (Alt+→)"
+                : "Avançar (Alt+→)";
+        }
+
+        private static string ObterNomeEntrada(EntradaHistorico entrada) =>
+            entrada.Caminho != null ? Path.GetFileName(entrada.Caminho) : NomeTextoColado;
+
+        private void tsbVoltar_Click(object? sender, EventArgs e) => Voltar();
+
+        private void tsbAvancar_Click(object? sender, EventArgs e) => Avancar();
+
+        private async void Voltar() => await NavegarHistoricoAsync(_historicoVoltar, _historicoAvancar);
+
+        private async void Avancar() => await NavegarHistoricoAsync(_historicoAvancar, _historicoVoltar);
+
+        private async Task NavegarHistoricoAsync(LinkedList<EntradaHistorico> origem, LinkedList<EntradaHistorico> destino)
+        {
+            if (_navegandoHistorico || !_previewPronto || origem.Last == null)
+                return;
+
+            _navegandoHistorico = true;
+            try
+            {
+                var entrada = origem.Last.Value;
+                origem.RemoveLast();
+
+                if (await ExibirEntradaAsync(entrada))
+                {
+                    if (_entradaAtual != null)
+                        Empilhar(destino, _entradaAtual);
+                    _entradaAtual = entrada;
+                }
+            }
+            finally
+            {
+                _navegandoHistorico = false;
+                AtualizarBotoesNavegacao();
+            }
+        }
+
+        private async Task<bool> ExibirEntradaAsync(EntradaHistorico entrada)
+        {
+            if (entrada.Caminho != null)
+            {
+                _ignorarSelecao = true;
+                try
+                {
+                    if (!SelecionarNaArvore(entrada.Caminho))
+                        trvPastas.SelectedNode = null;
+                }
+                finally
+                {
+                    _ignorarSelecao = false;
+                }
+
+                return await ExibirArquivoAsync(entrada.Caminho, registrarHistorico: false);
+            }
+
+            LimparSelecaoArvore();
+            await RenderizarAsync(entrada.Texto ?? string.Empty, NomeTextoColado);
+            _arquivoAtual = null;
+            Text = TituloPadrao;
+            return true;
+        }
+
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            if (wvwPreview.Focused)
+                return base.ProcessCmdKey(ref msg, keyData);
+
+            switch (keyData)
+            {
+                case Keys.Alt | Keys.Left:
+                case Keys.BrowserBack:
+                    Voltar();
+                    return true;
+
+                case Keys.Alt | Keys.Right:
+                case Keys.BrowserForward:
+                    Avancar();
+                    return true;
+            }
+
+            return base.ProcessCmdKey(ref msg, keyData);
+        }
+
+        protected override void WndProc(ref Message m)
+        {
+            if (m.Msg == WM_APPCOMMAND)
+            {
+                var comando = (int)((m.LParam.ToInt64() >> 16) & 0xFFFF) & ~0xF000;
+                if (comando == APPCOMMAND_BROWSER_BACKWARD)
+                {
+                    Voltar();
+                    m.Result = 1;
+                    return;
+                }
+
+                if (comando == APPCOMMAND_BROWSER_FORWARD)
+                {
+                    Avancar();
+                    m.Result = 1;
+                    return;
+                }
+            }
+
+            base.WndProc(ref m);
         }
     }
 }

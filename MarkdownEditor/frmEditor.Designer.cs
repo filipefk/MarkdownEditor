@@ -34,11 +34,15 @@ namespace MarkdownEditor
             trvPastas = new TreeView();
             imlIcones = new ImageList(components);
             wvwPreview = new Microsoft.Web.WebView2.WinForms.WebView2();
+            tsrNavegacao = new ToolStrip();
+            tsbVoltar = new ToolStripButton();
+            tsbAvancar = new ToolStripButton();
             ((System.ComponentModel.ISupportInitialize)spcPrincipal).BeginInit();
             spcPrincipal.Panel1.SuspendLayout();
             spcPrincipal.Panel2.SuspendLayout();
             spcPrincipal.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)wvwPreview).BeginInit();
+            tsrNavegacao.SuspendLayout();
             SuspendLayout();
             // 
             // spcPrincipal
@@ -90,6 +94,33 @@ namespace MarkdownEditor
             wvwPreview.Size = new Size(796, 597);
             wvwPreview.TabIndex = 0;
             wvwPreview.ZoomFactor = 1D;
+            //
+            // tsrNavegacao
+            //
+            tsrNavegacao.GripStyle = ToolStripGripStyle.Hidden;
+            tsrNavegacao.Items.AddRange(new ToolStripItem[] { tsbVoltar, tsbAvancar });
+            tsrNavegacao.Location = new Point(0, 0);
+            tsrNavegacao.Name = "tsrNavegacao";
+            tsrNavegacao.Size = new Size(1080, 25);
+            tsrNavegacao.TabIndex = 1;
+            //
+            // tsbVoltar
+            //
+            tsbVoltar.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            tsbVoltar.Enabled = false;
+            tsbVoltar.Name = "tsbVoltar";
+            tsbVoltar.Size = new Size(60, 22);
+            tsbVoltar.Text = "◀ Voltar";
+            tsbVoltar.Click += tsbVoltar_Click;
+            //
+            // tsbAvancar
+            //
+            tsbAvancar.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            tsbAvancar.Enabled = false;
+            tsbAvancar.Name = "tsbAvancar";
+            tsbAvancar.Size = new Size(68, 22);
+            tsbAvancar.Text = "Avançar ▶";
+            tsbAvancar.Click += tsbAvancar_Click;
             // 
             // frmEditor
             // 
@@ -97,6 +128,7 @@ namespace MarkdownEditor
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(1080, 597);
             Controls.Add(spcPrincipal);
+            Controls.Add(tsrNavegacao);
             Icon = (Icon)resources.GetObject("$this.Icon");
             MinimumSize = new Size(573, 276);
             Name = "frmEditor";
@@ -108,7 +140,10 @@ namespace MarkdownEditor
             ((System.ComponentModel.ISupportInitialize)spcPrincipal).EndInit();
             spcPrincipal.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)wvwPreview).EndInit();
+            tsrNavegacao.ResumeLayout(false);
+            tsrNavegacao.PerformLayout();
             ResumeLayout(false);
+            PerformLayout();
         }
 
         #endregion
@@ -117,5 +152,8 @@ namespace MarkdownEditor
         private TreeView trvPastas;
         private ImageList imlIcones;
         private Microsoft.Web.WebView2.WinForms.WebView2 wvwPreview;
+        private ToolStrip tsrNavegacao;
+        private ToolStripButton tsbVoltar;
+        private ToolStripButton tsbAvancar;
     }
 }
