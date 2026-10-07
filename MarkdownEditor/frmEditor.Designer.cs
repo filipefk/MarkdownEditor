@@ -1,4 +1,4 @@
-﻿namespace MarkdownEditor
+namespace MarkdownEditor
 {
     partial class frmEditor
     {
@@ -28,33 +28,94 @@
         /// </summary>
         private void InitializeComponent()
         {
+            components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(frmEditor));
+            spcPrincipal = new SplitContainer();
             trvPastas = new TreeView();
+            imlIcones = new ImageList(components);
+            wvwPreview = new Microsoft.Web.WebView2.WinForms.WebView2();
+            ((System.ComponentModel.ISupportInitialize)spcPrincipal).BeginInit();
+            spcPrincipal.Panel1.SuspendLayout();
+            spcPrincipal.Panel2.SuspendLayout();
+            spcPrincipal.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)wvwPreview).BeginInit();
             SuspendLayout();
+            // 
+            // spcPrincipal
+            // 
+            spcPrincipal.Dock = DockStyle.Fill;
+            spcPrincipal.FixedPanel = FixedPanel.Panel1;
+            spcPrincipal.Location = new Point(0, 0);
+            spcPrincipal.Name = "spcPrincipal";
+            // 
+            // spcPrincipal.Panel1
+            // 
+            spcPrincipal.Panel1.Controls.Add(trvPastas);
+            // 
+            // spcPrincipal.Panel2
+            // 
+            spcPrincipal.Panel2.Controls.Add(wvwPreview);
+            spcPrincipal.Size = new Size(1080, 597);
+            spcPrincipal.SplitterDistance = 280;
+            spcPrincipal.TabIndex = 0;
             // 
             // trvPastas
             // 
-            trvPastas.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left;
-            trvPastas.Location = new Point(12, 12);
+            trvPastas.Dock = DockStyle.Fill;
+            trvPastas.HideSelection = false;
+            trvPastas.ImageIndex = 0;
+            trvPastas.ImageList = imlIcones;
+            trvPastas.Location = new Point(0, 0);
             trvPastas.Name = "trvPastas";
-            trvPastas.Size = new Size(241, 447);
+            trvPastas.SelectedImageIndex = 0;
+            trvPastas.Size = new Size(280, 597);
             trvPastas.TabIndex = 0;
+            trvPastas.BeforeExpand += trvPastas_BeforeExpand;
+            trvPastas.AfterSelect += trvPastas_AfterSelect;
+            // 
+            // imlIcones
+            // 
+            imlIcones.ColorDepth = ColorDepth.Depth32Bit;
+            imlIcones.ImageSize = new Size(16, 16);
+            imlIcones.TransparentColor = Color.Transparent;
+            // 
+            // wvwPreview
+            // 
+            wvwPreview.AllowExternalDrop = true;
+            wvwPreview.CreationProperties = null;
+            wvwPreview.DefaultBackgroundColor = Color.White;
+            wvwPreview.Dock = DockStyle.Fill;
+            wvwPreview.Location = new Point(0, 0);
+            wvwPreview.Name = "wvwPreview";
+            wvwPreview.Size = new Size(796, 597);
+            wvwPreview.TabIndex = 0;
+            wvwPreview.ZoomFactor = 1D;
             // 
             // frmEditor
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(663, 471);
-            Controls.Add(trvPastas);
+            ClientSize = new Size(1080, 597);
+            Controls.Add(spcPrincipal);
             Icon = (Icon)resources.GetObject("$this.Icon");
             MinimumSize = new Size(573, 276);
             Name = "frmEditor";
+            StartPosition = FormStartPosition.CenterScreen;
             Text = "Visualizador e editor de Markdown";
+            Load += frmEditor_Load;
+            spcPrincipal.Panel1.ResumeLayout(false);
+            spcPrincipal.Panel2.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)spcPrincipal).EndInit();
+            spcPrincipal.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)wvwPreview).EndInit();
             ResumeLayout(false);
         }
 
         #endregion
 
+        private SplitContainer spcPrincipal;
         private TreeView trvPastas;
+        private ImageList imlIcones;
+        private Microsoft.Web.WebView2.WinForms.WebView2 wvwPreview;
     }
 }
