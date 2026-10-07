@@ -16,6 +16,9 @@ Aplicação Windows Forms (.NET 10) para navegar pelas pastas do computador e vi
   - Botão "Escolher arquivo" / "Abrir outro arquivo".
   - Tema claro/escuro (a escolha fica salva).
   - Copiar o conteúdo e Exportar/Imprimir (inclusive para PDF).
+- **Voltar e Avançar** entre os últimos arquivos (e textos colados) exibidos, como num navegador — guarda até 10 itens em cada direção:
+  - Botões **◀ Voltar** e **Avançar ▶** na barra superior (o tooltip mostra o nome do destino).
+  - Atalhos **Alt+←** / **Alt+→** e os botões laterais do mouse.
 - **Abrir arquivo por parâmetro**: o programa aceita o caminho de um arquivo na linha de comando, do mesmo jeito que o Windows faz no duplo clique, exibe o arquivo e o seleciona na árvore:
 
   ```bash
@@ -24,7 +27,11 @@ Aplicação Windows Forms (.NET 10) para navegar pelas pastas do computador e vi
 
 ## Abrir arquivos .md com duplo clique
 
-O programa não altera o Registro do Windows. Para usá-lo no duplo clique, faça a associação manualmente uma vez:
+Ao usar o [instalador](#instalador), o programa já aparece no **Abrir com** dos arquivos `.md`, `.markdown`, `.json`, `.xml` e `.txt`, e a opção **"Abrir arquivos .md e .markdown com o Markdown Editor por padrão"** grava a associação no Registro.
+
+**É normal o Windows perguntar qual aplicativo usar no primeiro duplo clique** depois da instalação, mesmo com essa opção marcada. No Windows 10/11 nenhum programa pode se tornar o padrão sozinho: a escolha final é sempre do usuário. Basta selecionar o **Markdown Editor** e marcar **Sempre**; a partir daí o duplo clique abre direto no programa.
+
+O programa em si não altera o Registro do Windows. Sem o instalador, faça a associação manualmente uma vez:
 
 1. Clique com o botão direito em um arquivo `.md` > **Abrir com** > **Escolher outro aplicativo**.
 2. Clique em **Procurar outro aplicativo neste PC** (ou "Escolher um aplicativo no PC") e selecione o `MarkdownEditor.exe`.
@@ -44,14 +51,28 @@ Abra `MarkdownEditor.slnx` no Visual Studio e execute o projeto `MarkdownEditor`
 dotnet run --project MarkdownEditor
 ```
 
+## Instalador
+
+Instalador para Windows gerado com [Inno Setup](https://jrsoftware.org/isinfo.php). Instala em `C:\Program Files\MarkdownEditor`, cria atalho no menu Iniciar (e, opcionalmente, na área de trabalho), registra o programa no **Abrir com** e oferece a associação padrão de `.md` e `.markdown`. A desinstalação remove tudo isso.
+
+O computador de destino precisa ter o **.NET 10 Desktop Runtime** instalado.
+
+Para gerar (requer o `iscc` do Inno Setup no PATH):
+
+1. Atualize a versão em `MarkdownEditor\Instalador\Instalador.iss` (`AppVersion` e `OutputBaseFilename`) e em `MarkdownEditor\MarkdownEditor.csproj` (`AssemblyVersion`, `FileVersion` e `InformationalVersion`).
+2. Execute `Release.cmd` na raiz: compila a solução em Release, apaga o instalador anterior e gera `MarkdownEditor\Instalador\MarkdownEditor-X.Y.Z.exe`.
+
 ## Estrutura
 
 ```
 MarkdownEditor.slnx
 Markdown.ico                       Ícone do programa
+Release.cmd                        Compila em Release e gera o instalador
 MarkdownEditor/
   Program.cs                       Ponto de entrada; recebe o arquivo passado como argumento
-  frmEditor.cs / .Designer.cs      Tela principal: árvore de pastas + visualizador WebView2
+  frmEditor.cs / .Designer.cs      Tela principal: árvore de pastas + visualizador WebView2 + Voltar/Avançar
+  Instalador/
+    Instalador.iss                 Script do Inno Setup
   wwwroot/
     preview-md-json-xml.html       Visualizador HTML (cópia do projeto preview-html)
 ```

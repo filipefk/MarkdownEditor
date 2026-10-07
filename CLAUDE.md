@@ -8,8 +8,8 @@ Solução: `MarkdownEditor.slnx` com um único projeto, `MarkdownEditor/Markdown
 
 ## Arquitetura
 
-- **`Program.cs`**: `Main(string[] args)` pega o primeiro argumento que seja um arquivo existente e passa para `new frmEditor(arquivoInicial)`. É assim que funciona o duplo clique no Windows (o Windows passa o caminho como `%1`). O programa **não** grava associação de arquivos no Registro — isso foi decidido explicitamente; a associação é feita manualmente pelo usuário via "Abrir com".
-- **`frmEditor`**: `SplitContainer spcPrincipal` com:
+- **`Program.cs`**: `Main(string[] args)` pega o primeiro argumento que seja um arquivo existente e passa para `new frmEditor(arquivoInicial)`. É assim que funciona o duplo clique no Windows (o Windows passa o caminho como `%1`). O programa **não** grava associação de arquivos no Registro — isso foi decidido explicitamente. Quem registra é o **instalador** (ver "Geração do Instalador"); sem o instalador, a associação é feita manualmente pelo usuário via "Abrir com".
+- **`frmEditor`**: `ToolStrip tsrNavegacao` (botões `tsbVoltar`/`tsbAvancar`) no topo e `SplitContainer spcPrincipal` com:
   - `Panel1`: `TreeView trvPastas` com `ImageList imlIcones`.
   - `Panel2`: `WebView2 wvwPreview` (pacote NuGet `Microsoft.Web.WebView2`).
 - **Árvore** (`frmEditor.cs`):
@@ -25,11 +25,33 @@ Solução: `MarkdownEditor.slnx` com um único projeto, `MarkdownEditor/Markdown
   - Para exibir um arquivo, o C# chama a função global do HTML: `renderContent(texto, nome)` via `ExecuteScriptAsync`, com os argumentos serializados por `JsonSerializer.Serialize`.
   - Enquanto a página não terminou de carregar (`NavigationCompleted`), o arquivo fica em `_arquivoPendente` e é exibido em seguida.
   - Arrastar/soltar, colar (Ctrl+V), tema, copiar e imprimir são recursos nativos do HTML e funcionam sem código C#.
+  - `ScriptMonitorarEventos` é injetado via `AddScriptToExecuteOnDocumentCreatedAsync` (sem alterar o HTML) e avisa o C# por `postMessage`, tratado em `CoreWebView2_WebMessageReceived`: `arquivoSolto`, `textoColado:` + texto, `abrirLink:` + destino, `navegar:voltar` / `navegar:avancar`.
+- **Histórico Voltar/Avançar**:
+  - `record EntradaHistorico(string? Caminho, string? Texto)`: um arquivo ou um texto colado (exibido como "texto colado").
+  - Pilhas `_historicoVoltar` / `_historicoAvancar` (`LinkedList`, limitadas a `LimiteHistorico = 10`) e `_entradaAtual`. `RegistrarNoHistorico` ignora a entrada igual à atual (`MesmaEntrada`) e limpa o "avançar".
+  - `NavegarHistoricoAsync` exibe a entrada (`ExibirEntradaAsync`: reseleciona o arquivo na árvore com `SelecionarNaArvore` e chama `ExibirArquivoAsync(..., registrarHistorico: false)`, ou re-renderiza o texto com `RenderizarAsync`). Se o arquivo não puder ser exibido, a entrada é descartada.
+  - Botões ficam desabilitados quando a pilha está vazia; o tooltip mostra o nome do destino (`AtualizarBotoesNavegacao`).
+  - Atalhos: Alt+← / Alt+→ e teclas BrowserBack/BrowserForward em `ProcessCmdKey` (só quando o foco não está no WebView2); botões laterais do mouse via `WM_APPCOMMAND` no `WndProc` e, dentro do WebView2, pelo `mouseup` dos botões 3/4 no `ScriptMonitorarEventos`.
+
+## Geração do Instalador
+
+Gerado com **Inno Setup** (`iscc` no PATH). Arquivos: `MarkdownEditor\Instalador\Instalador.iss` e `Release.cmd` (raiz), baseados no projeto `D:\Growdev\Refere\AutomacaoBrowser`.
+
+- Build **framework-dependent**: a máquina precisa do .NET 10 Desktop Runtime. O instalador copia tudo de `MarkdownEditor\bin\Release\net10.0-windows\` (inclui `wwwroot\` e `runtimes\`) para `{commonpf}\MarkdownEditor`.
+- Registro (root `HKA`, removido na desinstalação):
+  - ProgID `MarkdownEditor.Arquivo` (`shell\open\command` = `"{app}\MarkdownEditor.exe" "%1"`) e `Applications\MarkdownEditor.exe\SupportedTypes`.
+  - Sempre: `OpenWithProgids` de `.md`, `.markdown`, `.json`, `.xml` e `.txt` → opção no "Abrir com".
+  - Tarefa opcional `associarmd` (desmarcada): grava `MarkdownEditor.Arquivo` como valor padrão de `.md` e `.markdown`.
+  - **Comportamento esperado:** no Windows 10/11 um instalador não consegue definir o app padrão — a escolha do usuário fica em `UserChoice` (protegida por hash) e prevalece. Por isso, no primeiro duplo clique após a instalação, o Windows pergunta qual aplicativo usar, mesmo com `associarmd` marcada; o usuário escolhe o Markdown Editor e marca "Sempre". Isso é normal e foi decidido manter assim (não usar ferramentas que contornam o hash do `UserChoice`).
+- Antes de gerar, atualizar a versão em:
+  1. `Instalador.iss`: `AppVersion` e `OutputBaseFilename` (`MarkdownEditor-X.Y.Z`).
+  2. `MarkdownEditor.csproj`: `AssemblyVersion`, `FileVersion` e `InformationalVersion`.
+- `Release.cmd`: `dotnet build MarkdownEditor.slnx -c Release` → apaga o `MarkdownEditor-*.exe` anterior → `iscc MarkdownEditor\Instalador\Instalador.iss`. O `.exe` é gerado em `MarkdownEditor\Instalador\` (ignorado no git).
 
 ## Convenções
 
 - Textos de interface, nomes de variáveis, métodos e controles em português (pt-BR).
-- Prefixos de controles: `frm` (form), `trv` (TreeView), `spc` (SplitContainer), `iml` (ImageList), `wvw` (WebView2).
+- Prefixos de controles: `frm` (form), `trv` (TreeView), `spc` (SplitContainer), `iml` (ImageList), `wvw` (WebView2), `tsr` (ToolStrip), `tsb` (ToolStripButton).
 - Não adicionar comentários XML `<summary>` em métodos novos.
 - Não alterar o HTML em `wwwroot` para integrar com o C#; preferir chamar as funções já existentes. Se o HTML precisar mudar, avaliar se a mudança deve ir também para o projeto `preview-html` original.
 - Não há testes automatizados; a verificação é feita executando o programa.
