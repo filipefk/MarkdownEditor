@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Microsoft.Web.WebView2.Core;
 
@@ -11,6 +12,7 @@ namespace MarkdownEditor
         private const string TituloPadrao = "Visualizador e editor de Markdown";
         private const string MensagemArquivoSolto = "arquivoSolto";
         private const string MensagemTextoColado = "textoColado";
+        private const string PrefixoMensagemLink = "abrirLink:";
 
         private const string ScriptMonitorarEventos = """
             window.addEventListener('drop', (e) => {
@@ -21,6 +23,23 @@ namespace MarkdownEditor
                 const texto = (e.clipboardData || window.clipboardData).getData('text');
                 if (texto && texto.trim().length > 0) window.chrome.webview.postMessage('textoColado');
             });
+            document.addEventListener('change', (e) => {
+                const alvo = e.target;
+                if (!(alvo instanceof HTMLInputElement) || alvo.type !== 'file') return;
+                const arquivo = alvo.files && alvo.files[0];
+                if (arquivo) window.chrome.webview.postMessageWithAdditionalObjects('arquivoSolto', [arquivo]);
+            }, true);
+            const interceptarLink = (e) => {
+                const link = e.target instanceof Element ? e.target.closest('a[href]') : null;
+                if (!link) return;
+                const href = link.getAttribute('href');
+                if (!href || href.startsWith('#')) return;
+                e.preventDefault();
+                if (e.type === 'auxclick' && e.button !== 1) return;
+                window.chrome.webview.postMessage('abrirLink:' + href);
+            };
+            document.addEventListener('click', interceptarLink, true);
+            document.addEventListener('auxclick', interceptarLink, true);
             """;
 
         private static readonly HashSet<string> ExtensoesSuportadas = new(StringComparer.OrdinalIgnoreCase)
@@ -32,6 +51,7 @@ namespace MarkdownEditor
 
         private bool _previewPronto;
         private string? _arquivoPendente;
+        private string? _arquivoAtual;
         private bool _ignorarSelecao;
 
         private readonly string? _arquivoInicial;
@@ -287,6 +307,8 @@ namespace MarkdownEditor
                 await wvwPreview.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(ScriptMonitorarEventos);
                 wvwPreview.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
                 wvwPreview.CoreWebView2.NavigationCompleted += CoreWebView2_NavigationCompleted;
+                wvwPreview.CoreWebView2.NavigationStarting += CoreWebView2_NavigationStarting;
+                wvwPreview.CoreWebView2.NewWindowRequested += CoreWebView2_NewWindowRequested;
                 wvwPreview.CoreWebView2.Navigate(PaginaPreview);
             }
             catch (Exception ex)
@@ -325,6 +347,12 @@ namespace MarkdownEditor
                 return;
             }
 
+            if (mensagem != null && mensagem.StartsWith(PrefixoMensagemLink, StringComparison.Ordinal))
+            {
+                AbrirLink(mensagem[PrefixoMensagemLink.Length..]);
+                return;
+            }
+
             switch (mensagem)
             {
                 case MensagemArquivoSolto:
@@ -340,8 +368,110 @@ namespace MarkdownEditor
 
                 case MensagemTextoColado:
                     trvPastas.SelectedNode = null;
+                    _arquivoAtual = null;
                     Text = TituloPadrao;
                     break;
+            }
+        }
+
+        private void CoreWebView2_NavigationStarting(object? sender, CoreWebView2NavigationStartingEventArgs e)
+        {
+            if (!e.Uri.StartsWith(PaginaPreview, StringComparison.OrdinalIgnoreCase))
+                e.Cancel = true;
+        }
+
+        private void CoreWebView2_NewWindowRequested(object? sender, CoreWebView2NewWindowRequestedEventArgs e)
+        {
+            e.Handled = true;
+        }
+
+        private async void AbrirLink(string href)
+        {
+            string caminho;
+            if (Uri.TryCreate(href, UriKind.Absolute, out var uri))
+            {
+                if (!uri.IsFile)
+                {
+                    if (uri.Scheme is "http" or "https" or "mailto")
+                        AbrirComShell(href);
+                    return;
+                }
+
+                caminho = uri.LocalPath;
+            }
+            else
+            {
+                if (_arquivoAtual == null)
+                {
+                    MessageBox.Show(this, "Não é possível abrir links relativos de um conteúdo sem arquivo de origem.",
+                        Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+
+                var relativo = href;
+                var indiceCorte = relativo.IndexOfAny(['#', '?']);
+                if (indiceCorte >= 0)
+                    relativo = relativo[..indiceCorte];
+                if (relativo.Length == 0)
+                    return;
+
+                relativo = Uri.UnescapeDataString(relativo).Replace('/', Path.DirectorySeparatorChar);
+
+                try
+                {
+                    caminho = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(_arquivoAtual)!, relativo));
+                }
+                catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+                {
+                    MessageBox.Show(this, $"Link inválido:\n{href}", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+            }
+
+            if (Directory.Exists(caminho))
+            {
+                AbrirComShell(caminho);
+                return;
+            }
+
+            if (!File.Exists(caminho))
+            {
+                MessageBox.Show(this, $"Arquivo não encontrado:\n{caminho}", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (!ExtensoesSuportadas.Contains(Path.GetExtension(caminho)))
+            {
+                AbrirComShell(caminho);
+                return;
+            }
+
+            if (SelecionarNaArvore(caminho))
+                return;
+
+            _ignorarSelecao = true;
+            try
+            {
+                trvPastas.SelectedNode = null;
+            }
+            finally
+            {
+                _ignorarSelecao = false;
+            }
+
+            await ExibirArquivoAsync(caminho);
+        }
+
+        private void AbrirComShell(string destino)
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo(destino) { UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, $"Não foi possível abrir:\n{destino}\n\n{ex.Message}",
+                    Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -358,6 +488,7 @@ namespace MarkdownEditor
                 _ignorarSelecao = false;
             }
 
+            _arquivoAtual = caminho;
             Text = $"{Path.GetFileName(caminho)} - {TituloPadrao}";
         }
 
@@ -369,6 +500,7 @@ namespace MarkdownEditor
                 var nome = Path.GetFileName(caminho);
                 var script = $"renderContent({JsonSerializer.Serialize(texto)}, {JsonSerializer.Serialize(nome)});";
                 await wvwPreview.ExecuteScriptAsync(script);
+                _arquivoAtual = caminho;
                 Text = $"{nome} - {TituloPadrao}";
             }
             catch (Exception ex)
