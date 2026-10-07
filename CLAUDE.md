@@ -26,7 +26,11 @@ Solução: `MarkdownEditor.slnx` com um único projeto, `MarkdownEditor/Markdown
   - Para exibir um arquivo, o C# chama a função global do HTML: `renderContent(texto, nome)` via `ExecuteScriptAsync`, com os argumentos serializados por `JsonSerializer.Serialize`.
   - Enquanto a página não terminou de carregar (`NavigationCompleted`), o arquivo fica em `_arquivoPendente` e é exibido em seguida.
   - Arrastar/soltar, colar (Ctrl+V), tema, copiar e imprimir são recursos nativos do HTML e funcionam sem código C#.
-  - `ScriptMonitorarEventos` é injetado via `AddScriptToExecuteOnDocumentCreatedAsync` (sem alterar o HTML) e avisa o C# por `postMessage`, tratado em `CoreWebView2_WebMessageReceived`: `arquivoSolto`, `textoColado:` + texto, `abrirLink:` + destino, `navegar:voltar` / `navegar:avancar`.
+  - `ScriptMonitorarEventos` é injetado via `AddScriptToExecuteOnDocumentCreatedAsync` (sem alterar o HTML) e avisa o C# por `postMessage`, tratado em `CoreWebView2_WebMessageReceived`: `arquivoSolto`, `textoColado:` + texto, `abrirLink:` + destino, `navegar:voltar` / `navegar:avancar`, `tema:light` / `tema:dark`.
+- **Tema do form**:
+  - Acompanha o tema do HTML. O script calcula o tema efetivo (`data-theme` em `<html>` ou, se ausente, `prefers-color-scheme`) e envia `tema:` no `DOMContentLoaded`, a cada mudança do atributo (`MutationObserver`) e quando o tema do Windows muda (`matchMedia`).
+  - Na abertura, antes de a página carregar, usa o tema do Windows (`SistemaUsaTemaEscuro`, que lê `AppsUseLightTheme` em `HKCU\...\Themes\Personalize`).
+  - `AplicarTema(bool escuro)` usa as cores VS Code Light+/Dark+ do CSS no form, `spcPrincipal` (o divisor é o `BackColor`), `trvPastas` e `tsrNavegacao` (`RenderizadorToolStrip` + `TabelaCoresToolStrip`) e no `DefaultBackgroundColor` do WebView2. A barra de título usa `DwmSetWindowAttribute` (`DWMWA_USE_IMMERSIVE_DARK_MODE`, reaplicado em `OnHandleCreated`) e as barras de rolagem da árvore usam `SetWindowTheme` (`DarkMode_Explorer`/`Explorer`).
 - **Histórico Voltar/Avançar**:
   - `record EntradaHistorico(string? Caminho, string? Texto)`: um arquivo ou um texto colado (exibido como "texto colado").
   - Pilhas `_historicoVoltar` / `_historicoAvancar` (`LinkedList`, limitadas a `LimiteHistorico = 10`) e `_entradaAtual`. `RegistrarNoHistorico` ignora a entrada igual à atual (`MesmaEntrada`) e limpa o "avançar".

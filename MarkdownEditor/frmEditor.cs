@@ -1,6 +1,8 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using Microsoft.Web.WebView2.Core;
+using Microsoft.Win32;
 
 namespace MarkdownEditor
 {
@@ -15,6 +17,8 @@ namespace MarkdownEditor
         private const string PrefixoMensagemLink = "abrirLink:";
         private const string MensagemNavegarVoltar = "navegar:voltar";
         private const string MensagemNavegarAvancar = "navegar:avancar";
+        private const string PrefixoMensagemTema = "tema:";
+        private const string TemaEscuro = "dark";
         private const string NomeTextoColado = "texto colado";
         private const int LimiteHistorico = 10;
         private const int LarguraMinimaArvore = 50;
@@ -68,7 +72,43 @@ namespace MarkdownEditor
             };
             document.addEventListener('click', interceptarLink, true);
             document.addEventListener('auxclick', interceptarLink, true);
+            const midiaEscura = window.matchMedia('(prefers-color-scheme: dark)');
+            let temaAvisado = null;
+            const avisarTema = () => {
+                const tema = document.documentElement.getAttribute('data-theme') || (midiaEscura.matches ? 'dark' : 'light');
+                if (tema === temaAvisado) return;
+                temaAvisado = tema;
+                window.chrome.webview.postMessage('tema:' + tema);
+            };
+            document.addEventListener('DOMContentLoaded', () => {
+                avisarTema();
+                new MutationObserver(avisarTema).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+            });
+            midiaEscura.addEventListener('change', avisarTema);
             """;
+
+        private static readonly Color CorFundoEscuro = ColorTranslator.FromHtml("#1E1E1E");
+        private static readonly Color CorPainelEscuro = ColorTranslator.FromHtml("#252526");
+        private static readonly Color CorTextoEscuro = ColorTranslator.FromHtml("#D4D4D4");
+        private static readonly Color CorBordaEscuro = ColorTranslator.FromHtml("#3C3C3C");
+        private static readonly Color CorDestaqueEscuro = ColorTranslator.FromHtml("#37373D");
+        private static readonly Color CorPressionadoEscuro = ColorTranslator.FromHtml("#45454B");
+        private static readonly Color CorDesabilitadoEscuro = ColorTranslator.FromHtml("#6E6E6E");
+        private static readonly Color CorFundoClaro = ColorTranslator.FromHtml("#FFFFFF");
+        private static readonly Color CorPainelClaro = ColorTranslator.FromHtml("#F3F3F3");
+        private static readonly Color CorTextoClaro = ColorTranslator.FromHtml("#1E1E1E");
+        private static readonly Color CorBordaClaro = ColorTranslator.FromHtml("#D4D4D4");
+        private static readonly Color CorDestaqueClaro = ColorTranslator.FromHtml("#E4E4E4");
+        private static readonly Color CorPressionadoClaro = ColorTranslator.FromHtml("#D4D4D4");
+        private static readonly Color CorDesabilitadoClaro = ColorTranslator.FromHtml("#A0A0A0");
+
+        private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
+
+        [DllImport("dwmapi.dll")]
+        private static extern int DwmSetWindowAttribute(IntPtr hwnd, int atributo, ref int valor, int tamanho);
+
+        [DllImport("uxtheme.dll", CharSet = CharSet.Unicode)]
+        private static extern int SetWindowTheme(IntPtr hwnd, string? nomeSubApp, string? listaSubId);
 
         private static readonly HashSet<string> ExtensoesSuportadas = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -91,6 +131,8 @@ namespace MarkdownEditor
 
         private int _larguraArvore;
 
+        private bool? _temaEscuro;
+
         private readonly string? _arquivoInicial;
 
         public frmEditor() : this(null)
@@ -106,6 +148,7 @@ namespace MarkdownEditor
 
         private async void frmEditor_Load(object? sender, EventArgs e)
         {
+            AplicarTema(SistemaUsaTemaEscuro());
             CarregarIcones();
             CarregarRaizes();
             AtualizarBotoesNavegacao();
@@ -395,6 +438,12 @@ namespace MarkdownEditor
             if (mensagem != null && mensagem.StartsWith(PrefixoMensagemTextoColado, StringComparison.Ordinal))
             {
                 RegistrarTextoColado(mensagem[PrefixoMensagemTextoColado.Length..]);
+                return;
+            }
+
+            if (mensagem != null && mensagem.StartsWith(PrefixoMensagemTema, StringComparison.Ordinal))
+            {
+                AplicarTema(mensagem[PrefixoMensagemTema.Length..] == TemaEscuro);
                 return;
             }
 
@@ -704,6 +753,66 @@ namespace MarkdownEditor
             return true;
         }
 
+        private static bool SistemaUsaTemaEscuro()
+        {
+            try
+            {
+                using var chave = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+                return chave?.GetValue("AppsUseLightTheme") is int valor && valor == 0;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        private void AplicarTema(bool escuro)
+        {
+            if (_temaEscuro == escuro)
+                return;
+
+            _temaEscuro = escuro;
+
+            var corFundo = escuro ? CorFundoEscuro : CorFundoClaro;
+            var corPainel = escuro ? CorPainelEscuro : CorPainelClaro;
+            var corTexto = escuro ? CorTextoEscuro : CorTextoClaro;
+            var corBorda = escuro ? CorBordaEscuro : CorBordaClaro;
+
+            BackColor = corFundo;
+            spcPrincipal.BackColor = corBorda;
+            spcPrincipal.Panel1.BackColor = corPainel;
+            spcPrincipal.Panel2.BackColor = corFundo;
+
+            trvPastas.BackColor = corPainel;
+            trvPastas.ForeColor = corTexto;
+            trvPastas.LineColor = corTexto;
+
+            tsrNavegacao.Renderer = new RenderizadorToolStrip(escuro);
+            tsrNavegacao.BackColor = corPainel;
+            tsrNavegacao.ForeColor = corTexto;
+
+            wvwPreview.DefaultBackgroundColor = corFundo;
+
+            AplicarTemaBarraTitulo();
+            if (trvPastas.IsHandleCreated)
+                SetWindowTheme(trvPastas.Handle, escuro ? "DarkMode_Explorer" : "Explorer", null);
+        }
+
+        private void AplicarTemaBarraTitulo()
+        {
+            if (!IsHandleCreated || _temaEscuro == null)
+                return;
+
+            var valor = _temaEscuro.Value ? 1 : 0;
+            DwmSetWindowAttribute(Handle, DWMWA_USE_IMMERSIVE_DARK_MODE, ref valor, sizeof(int));
+        }
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            AplicarTemaBarraTitulo();
+        }
+
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
             if (wvwPreview.Focused)
@@ -746,6 +855,46 @@ namespace MarkdownEditor
             }
 
             base.WndProc(ref m);
+        }
+
+        private sealed class RenderizadorToolStrip(bool escuro) : ToolStripProfessionalRenderer(new TabelaCoresToolStrip(escuro))
+        {
+            protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
+            {
+                if (!e.Item.Enabled)
+                {
+                    TextRenderer.DrawText(e.Graphics, e.Text, e.TextFont, e.TextRectangle,
+                        escuro ? CorDesabilitadoEscuro : CorDesabilitadoClaro, e.TextFormat);
+                    return;
+                }
+
+                base.OnRenderItemText(e);
+            }
+        }
+
+        private sealed class TabelaCoresToolStrip(bool escuro) : ProfessionalColorTable
+        {
+            private Color Painel => escuro ? CorPainelEscuro : CorPainelClaro;
+            private Color Borda => escuro ? CorBordaEscuro : CorBordaClaro;
+            private Color Destaque => escuro ? CorDestaqueEscuro : CorDestaqueClaro;
+            private Color Pressionado => escuro ? CorPressionadoEscuro : CorPressionadoClaro;
+
+            public override Color ToolStripGradientBegin => Painel;
+            public override Color ToolStripGradientMiddle => Painel;
+            public override Color ToolStripGradientEnd => Painel;
+            public override Color ToolStripBorder => Borda;
+            public override Color ButtonSelectedHighlight => Destaque;
+            public override Color ButtonSelectedGradientBegin => Destaque;
+            public override Color ButtonSelectedGradientMiddle => Destaque;
+            public override Color ButtonSelectedGradientEnd => Destaque;
+            public override Color ButtonSelectedBorder => Borda;
+            public override Color ButtonPressedHighlight => Pressionado;
+            public override Color ButtonPressedGradientBegin => Pressionado;
+            public override Color ButtonPressedGradientMiddle => Pressionado;
+            public override Color ButtonPressedGradientEnd => Pressionado;
+            public override Color ButtonPressedBorder => Borda;
+            public override Color SeparatorDark => Borda;
+            public override Color SeparatorLight => Painel;
         }
     }
 }
