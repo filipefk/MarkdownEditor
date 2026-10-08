@@ -110,6 +110,27 @@ namespace MarkdownEditor
         [DllImport("uxtheme.dll", CharSet = CharSet.Unicode)]
         private static extern int SetWindowTheme(IntPtr hwnd, string? nomeSubApp, string? listaSubId);
 
+        private const uint SHGFI_ICON = 0x100;
+        private const uint SHGFI_SMALLICON = 0x1;
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        private struct SHFILEINFO
+        {
+            public IntPtr hIcon;
+            public int iIcon;
+            public uint dwAttributes;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)]
+            public string szDisplayName;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 80)]
+            public string szTypeName;
+        }
+
+        [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+        private static extern IntPtr SHGetFileInfo(string pszPath, uint dwFileAttributes, ref SHFILEINFO psfi, uint cbFileInfo, uint uFlags);
+
+        [DllImport("user32.dll")]
+        private static extern bool DestroyIcon(IntPtr hIcon);
+
         private static readonly HashSet<string> ExtensoesSuportadas = new(StringComparer.OrdinalIgnoreCase)
         {
             ".md", ".markdown", ".json", ".xml", ".txt"
@@ -210,6 +231,32 @@ namespace MarkdownEditor
             imlIcones.Images.Add(chave, icone);
         }
 
+        private string ObterChaveIconePasta(string caminho, string chave)
+        {
+            if (imlIcones.Images.ContainsKey(chave))
+                return chave;
+
+            var info = new SHFILEINFO();
+            SHGetFileInfo(caminho, 0, ref info, (uint)Marshal.SizeOf<SHFILEINFO>(), SHGFI_ICON | SHGFI_SMALLICON);
+            if (info.hIcon == IntPtr.Zero)
+                return "pasta";
+
+            try
+            {
+                using var icone = Icon.FromHandle(info.hIcon);
+                imlIcones.Images.Add(chave, icone);
+                return chave;
+            }
+            catch (Exception)
+            {
+                return "pasta";
+            }
+            finally
+            {
+                DestroyIcon(info.hIcon);
+            }
+        }
+
         private string ObterChaveIconeArquivo(string caminho)
         {
             var chave = "ext" + Path.GetExtension(caminho).ToLowerInvariant();
@@ -238,17 +285,17 @@ namespace MarkdownEditor
             {
                 trvPastas.Nodes.Clear();
 
-                var atalhos = new (string Nome, string Caminho)[]
+                var atalhos = new (string Nome, string Caminho, string ChaveIcone)[]
                 {
-                    ("Área de Trabalho", Environment.GetFolderPath(Environment.SpecialFolder.Desktop)),
-                    ("Documentos", Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)),
-                    ("Downloads", Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads"))
+                    ("Área de Trabalho", Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "pastaDesktop"),
+                    ("Documentos", Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "pastaDocumentos"),
+                    ("Downloads", Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads"), "pastaDownloads")
                 };
 
-                foreach (var (nome, caminho) in atalhos)
+                foreach (var (nome, caminho, chaveIcone) in atalhos)
                 {
                     if (!string.IsNullOrEmpty(caminho) && Directory.Exists(caminho))
-                        trvPastas.Nodes.Add(CriarNoPasta(nome, caminho, "pasta"));
+                        trvPastas.Nodes.Add(CriarNoPasta(nome, caminho, ObterChaveIconePasta(caminho, chaveIcone)));
                 }
 
                 foreach (var unidade in DriveInfo.GetDrives())
