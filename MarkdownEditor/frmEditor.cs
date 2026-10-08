@@ -134,6 +134,8 @@ namespace MarkdownEditor
 
         private bool? _temaEscuro;
 
+        private NoArvore? _noMenuContexto;
+
         private readonly string? _arquivoInicial;
 
         public frmEditor() : this(null)
@@ -392,6 +394,7 @@ namespace MarkdownEditor
                 wvwPreview.CoreWebView2.NavigationCompleted += CoreWebView2_NavigationCompleted;
                 wvwPreview.CoreWebView2.NavigationStarting += CoreWebView2_NavigationStarting;
                 wvwPreview.CoreWebView2.NewWindowRequested += CoreWebView2_NewWindowRequested;
+                wvwPreview.CoreWebView2.ContextMenuRequested += CoreWebView2_ContextMenuRequested;
                 wvwPreview.CoreWebView2.Navigate(PaginaPreview);
             }
             catch (Exception ex)
@@ -583,6 +586,96 @@ namespace MarkdownEditor
                 MessageBox.Show(this, $"Não foi possível abrir:\n{destino}\n\n{ex.Message}",
                     Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
+        }
+
+        private static (string AbrirLocal, string CopiarCaminho, string CopiarNome) TextosMenu(bool ehArquivo) =>
+            ehArquivo
+                ? ("Abrir local do arquivo", "Copiar caminho completo", "Copiar nome do arquivo")
+                : ("Abrir pasta", "Copiar caminho completo", "Copiar nome da pasta");
+
+        private void AbrirLocal(NoArvore no)
+        {
+            if (!no.EhArquivo)
+            {
+                AbrirComShell(no.Caminho);
+                return;
+            }
+
+            try
+            {
+                Process.Start("explorer.exe", $"/select,\"{no.Caminho}\"");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, $"Não foi possível abrir:\n{no.Caminho}\n\n{ex.Message}",
+                    Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        private static void CopiarCaminho(NoArvore no) => Clipboard.SetText(no.Caminho);
+
+        private static void CopiarNome(NoArvore no)
+        {
+            var nome = Path.GetFileName(no.Caminho.TrimEnd(Path.DirectorySeparatorChar));
+            Clipboard.SetText(string.IsNullOrEmpty(nome) ? no.Caminho : nome);
+        }
+
+        private void cmsArvore_Opening(object? sender, System.ComponentModel.CancelEventArgs e)
+        {
+            var no = cmsArvore.SourceControl == trvPastas && trvPastas.ClientRectangle.Contains(trvPastas.PointToClient(Cursor.Position))
+                ? trvPastas.GetNodeAt(trvPastas.PointToClient(Cursor.Position))
+                : trvPastas.SelectedNode;
+
+            if (no?.Tag is not NoArvore info)
+            {
+                _noMenuContexto = null;
+                e.Cancel = true;
+                return;
+            }
+
+            _noMenuContexto = info;
+            var textos = TextosMenu(info.EhArquivo);
+            tsmAbrirLocal.Text = textos.AbrirLocal;
+            tsmCopiarCaminho.Text = textos.CopiarCaminho;
+            tsmCopiarNome.Text = textos.CopiarNome;
+        }
+
+        private void tsmAbrirLocal_Click(object? sender, EventArgs e)
+        {
+            if (_noMenuContexto != null)
+                AbrirLocal(_noMenuContexto);
+        }
+
+        private void tsmCopiarCaminho_Click(object? sender, EventArgs e)
+        {
+            if (_noMenuContexto != null)
+                CopiarCaminho(_noMenuContexto);
+        }
+
+        private void tsmCopiarNome_Click(object? sender, EventArgs e)
+        {
+            if (_noMenuContexto != null)
+                CopiarNome(_noMenuContexto);
+        }
+
+        private void CoreWebView2_ContextMenuRequested(object? sender, CoreWebView2ContextMenuRequestedEventArgs e)
+        {
+            var ambiente = wvwPreview.CoreWebView2.Environment;
+            var no = trvPastas.SelectedNode?.Tag as NoArvore;
+            var textos = TextosMenu(no?.EhArquivo ?? true);
+
+            CoreWebView2ContextMenuItem CriarItem(string texto, Action<NoArvore> acao)
+            {
+                var item = ambiente.CreateContextMenuItem(texto, null, CoreWebView2ContextMenuItemKind.Command);
+                item.IsEnabled = no != null;
+                item.CustomItemSelected += (_, _) => BeginInvoke(() => acao(no!));
+                return item;
+            }
+
+            e.MenuItems.Add(ambiente.CreateContextMenuItem(string.Empty, null, CoreWebView2ContextMenuItemKind.Separator));
+            e.MenuItems.Add(CriarItem(textos.AbrirLocal, AbrirLocal));
+            e.MenuItems.Add(CriarItem(textos.CopiarCaminho, CopiarCaminho));
+            e.MenuItems.Add(CriarItem(textos.CopiarNome, CopiarNome));
         }
 
         private void PosicionarArquivoSolto(string caminho)
@@ -837,6 +930,10 @@ namespace MarkdownEditor
             tsrNavegacao.BackColor = corPainel;
             tsrNavegacao.ForeColor = corTexto;
 
+            cmsArvore.Renderer = new RenderizadorToolStrip(escuro);
+            cmsArvore.BackColor = corPainel;
+            cmsArvore.ForeColor = corTexto;
+
             wvwPreview.DefaultBackgroundColor = corFundo;
 
             AplicarTemaBarraTitulo();
@@ -941,6 +1038,15 @@ namespace MarkdownEditor
             public override Color ButtonPressedBorder => Borda;
             public override Color SeparatorDark => Borda;
             public override Color SeparatorLight => Painel;
+            public override Color ToolStripDropDownBackground => Painel;
+            public override Color ImageMarginGradientBegin => Painel;
+            public override Color ImageMarginGradientMiddle => Painel;
+            public override Color ImageMarginGradientEnd => Painel;
+            public override Color MenuBorder => Borda;
+            public override Color MenuItemBorder => Borda;
+            public override Color MenuItemSelected => Destaque;
+            public override Color MenuItemSelectedGradientBegin => Destaque;
+            public override Color MenuItemSelectedGradientEnd => Destaque;
         }
     }
 }

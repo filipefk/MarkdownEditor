@@ -39,12 +39,17 @@ namespace MarkdownEditor
             tssArvore = new ToolStripSeparator();
             tsbVoltar = new ToolStripButton();
             tsbAvancar = new ToolStripButton();
+            cmsArvore = new ContextMenuStrip(components);
+            tsmAbrirLocal = new ToolStripMenuItem();
+            tsmCopiarCaminho = new ToolStripMenuItem();
+            tsmCopiarNome = new ToolStripMenuItem();
             ((System.ComponentModel.ISupportInitialize)spcPrincipal).BeginInit();
             spcPrincipal.Panel1.SuspendLayout();
             spcPrincipal.Panel2.SuspendLayout();
             spcPrincipal.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)wvwPreview).BeginInit();
             tsrNavegacao.SuspendLayout();
+            cmsArvore.SuspendLayout();
             SuspendLayout();
             // 
             // spcPrincipal
@@ -72,7 +77,8 @@ namespace MarkdownEditor
             spcPrincipal.TabIndex = 0;
             // 
             // trvPastas
-            // 
+            //
+            trvPastas.ContextMenuStrip = cmsArvore;
             trvPastas.Dock = DockStyle.Fill;
             trvPastas.HideSelection = false;
             trvPastas.ImageIndex = 0;
@@ -142,7 +148,35 @@ namespace MarkdownEditor
             tsbAvancar.Size = new Size(68, 22);
             tsbAvancar.Text = "Avançar ▶";
             tsbAvancar.Click += tsbAvancar_Click;
-            // 
+            //
+            // cmsArvore
+            //
+            cmsArvore.Items.AddRange(new ToolStripItem[] { tsmAbrirLocal, tsmCopiarCaminho, tsmCopiarNome });
+            cmsArvore.Name = "cmsArvore";
+            cmsArvore.Size = new Size(200, 70);
+            cmsArvore.Opening += cmsArvore_Opening;
+            //
+            // tsmAbrirLocal
+            //
+            tsmAbrirLocal.Name = "tsmAbrirLocal";
+            tsmAbrirLocal.Size = new Size(199, 22);
+            tsmAbrirLocal.Text = "Abrir local do arquivo";
+            tsmAbrirLocal.Click += tsmAbrirLocal_Click;
+            //
+            // tsmCopiarCaminho
+            //
+            tsmCopiarCaminho.Name = "tsmCopiarCaminho";
+            tsmCopiarCaminho.Size = new Size(199, 22);
+            tsmCopiarCaminho.Text = "Copiar caminho completo";
+            tsmCopiarCaminho.Click += tsmCopiarCaminho_Click;
+            //
+            // tsmCopiarNome
+            //
+            tsmCopiarNome.Name = "tsmCopiarNome";
+            tsmCopiarNome.Size = new Size(199, 22);
+            tsmCopiarNome.Text = "Copiar nome do arquivo";
+            tsmCopiarNome.Click += tsmCopiarNome_Click;
+            //
             // frmEditor
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
@@ -163,6 +197,7 @@ namespace MarkdownEditor
             ((System.ComponentModel.ISupportInitialize)wvwPreview).EndInit();
             tsrNavegacao.ResumeLayout(false);
             tsrNavegacao.PerformLayout();
+            cmsArvore.ResumeLayout(false);
             ResumeLayout(false);
             PerformLayout();
         }
@@ -178,5 +213,9 @@ namespace MarkdownEditor
         private ToolStripSeparator tssArvore;
         private ToolStripButton tsbVoltar;
         private ToolStripButton tsbAvancar;
+        private ContextMenuStrip cmsArvore;
+        private ToolStripMenuItem tsmAbrirLocal;
+        private ToolStripMenuItem tsmCopiarCaminho;
+        private ToolStripMenuItem tsmCopiarNome;
     }
 }
