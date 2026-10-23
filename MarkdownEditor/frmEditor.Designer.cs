@@ -43,6 +43,8 @@ namespace MarkdownEditor
             tsmAbrirLocal = new ToolStripMenuItem();
             tsmCopiarCaminho = new ToolStripMenuItem();
             tsmCopiarNome = new ToolStripMenuItem();
+            tssAtualizar = new ToolStripSeparator();
+            tsmAtualizar = new ToolStripMenuItem();
             ((System.ComponentModel.ISupportInitialize)spcPrincipal).BeginInit();
             spcPrincipal.Panel1.SuspendLayout();
             spcPrincipal.Panel2.SuspendLayout();
@@ -151,9 +153,9 @@ namespace MarkdownEditor
             //
             // cmsArvore
             //
-            cmsArvore.Items.AddRange(new ToolStripItem[] { tsmAbrirLocal, tsmCopiarCaminho, tsmCopiarNome });
+            cmsArvore.Items.AddRange(new ToolStripItem[] { tsmAbrirLocal, tsmCopiarCaminho, tsmCopiarNome, tssAtualizar, tsmAtualizar });
             cmsArvore.Name = "cmsArvore";
-            cmsArvore.Size = new Size(200, 70);
+            cmsArvore.Size = new Size(200, 98);
             cmsArvore.Opening += cmsArvore_Opening;
             //
             // tsmAbrirLocal
@@ -176,6 +178,18 @@ namespace MarkdownEditor
             tsmCopiarNome.Size = new Size(199, 22);
             tsmCopiarNome.Text = "Copiar nome do arquivo";
             tsmCopiarNome.Click += tsmCopiarNome_Click;
+            //
+            // tssAtualizar
+            //
+            tssAtualizar.Name = "tssAtualizar";
+            tssAtualizar.Size = new Size(196, 6);
+            //
+            // tsmAtualizar
+            //
+            tsmAtualizar.Name = "tsmAtualizar";
+            tsmAtualizar.Size = new Size(199, 22);
+            tsmAtualizar.Text = "Atualizar";
+            tsmAtualizar.Click += tsmAtualizar_Click;
             //
             // frmEditor
             // 
@@ -217,5 +231,7 @@ namespace MarkdownEditor
         private ToolStripMenuItem tsmAbrirLocal;
         private ToolStripMenuItem tsmCopiarCaminho;
         private ToolStripMenuItem tsmCopiarNome;
+        private ToolStripSeparator tssAtualizar;
+        private ToolStripMenuItem tsmAtualizar;
     }
 }

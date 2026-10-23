@@ -18,6 +18,9 @@ namespace MarkdownEditor
         private const string MensagemNavegarVoltar = "navegar:voltar";
         private const string MensagemNavegarAvancar = "navegar:avancar";
         private const string PrefixoMensagemTema = "tema:";
+        private const string MensagemNovo = "novo";
+        private const int IntervaloRecargaMs = 300;
+        private const int MaximoTentativasRecarga = 5;
         private const string TemaEscuro = "dark";
         private const string NomeTextoColado = "texto colado";
         private const int LimiteHistorico = 10;
@@ -85,6 +88,9 @@ namespace MarkdownEditor
                 new MutationObserver(avisarTema).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
             });
             midiaEscura.addEventListener('change', avisarTema);
+            document.addEventListener('click', (e) => {
+                if (e.target instanceof Element && e.target.closest('#newBtn')) window.chrome.webview.postMessage('novo');
+            }, true);
             """;
 
         private static readonly Color CorFundoEscuro = ColorTranslator.FromHtml("#1E1E1E");
@@ -156,6 +162,12 @@ namespace MarkdownEditor
         private bool? _temaEscuro;
 
         private NoArvore? _noMenuContexto;
+        private TreeNode? _treeNodeMenuContexto;
+
+        private FileSystemWatcher? _monitorArquivo;
+        private readonly System.Windows.Forms.Timer _temporizadorRecarga;
+        private bool _verificandoArquivo;
+        private int _tentativasRecarga;
 
         private readonly string? _arquivoInicial;
 
@@ -168,6 +180,8 @@ namespace MarkdownEditor
             InitializeComponent();
             spcPrincipal.Panel1MinSize = LarguraMinimaArvore;
             _arquivoInicial = arquivoInicial;
+            _temporizadorRecarga = new System.Windows.Forms.Timer { Interval = IntervaloRecargaMs };
+            _temporizadorRecarga.Tick += temporizadorRecarga_Tick;
         }
 
         private async void frmEditor_Load(object? sender, EventArgs e)
@@ -508,6 +522,11 @@ namespace MarkdownEditor
                     Avancar();
                     break;
 
+                case MensagemNovo:
+                    LimparSelecaoArvore();
+                    DefinirArquivoAtual(null);
+                    break;
+
                 case MensagemArquivoSolto:
                     var caminho = e.AdditionalObjects.FirstOrDefault() switch
                     {
@@ -525,8 +544,7 @@ namespace MarkdownEditor
         private void RegistrarTextoColado(string texto)
         {
             LimparSelecaoArvore();
-            _arquivoAtual = null;
-            Text = TituloPadrao;
+            DefinirArquivoAtual(null);
             RegistrarNoHistorico(new EntradaHistorico(null, texto));
         }
 
@@ -676,15 +694,93 @@ namespace MarkdownEditor
             if (no?.Tag is not NoArvore info)
             {
                 _noMenuContexto = null;
+                _treeNodeMenuContexto = null;
                 e.Cancel = true;
                 return;
             }
 
             _noMenuContexto = info;
+            _treeNodeMenuContexto = no;
             var textos = TextosMenu(info.EhArquivo);
             tsmAbrirLocal.Text = textos.AbrirLocal;
             tsmCopiarCaminho.Text = textos.CopiarCaminho;
             tsmCopiarNome.Text = textos.CopiarNome;
+            tssAtualizar.Visible = !info.EhArquivo;
+            tsmAtualizar.Visible = !info.EhArquivo;
+        }
+
+        private void tsmAtualizar_Click(object? sender, EventArgs e)
+        {
+            if (_treeNodeMenuContexto?.TreeView == trvPastas)
+                AtualizarPasta(_treeNodeMenuContexto);
+        }
+
+        private void AtualizarPasta(TreeNode no)
+        {
+            if (no.Tag is not NoArvore { EhArquivo: false } || NaoCarregado(no))
+                return;
+
+            trvPastas.BeginUpdate();
+            Cursor = Cursors.WaitCursor;
+            _ignorarSelecao = true;
+            try
+            {
+                AtualizarFilhos(no);
+            }
+            finally
+            {
+                _ignorarSelecao = false;
+                Cursor = Cursors.Default;
+                trvPastas.EndUpdate();
+            }
+        }
+
+        private static bool NaoCarregado(TreeNode no) => no.Nodes.Count == 1 && no.Nodes[0].Tag == null;
+
+        private void AtualizarFilhos(TreeNode no)
+        {
+            var diretorio = new DirectoryInfo(((NoArvore)no.Tag!).Caminho);
+            var existentes = no.Nodes.Cast<TreeNode>()
+                .Where(n => n.Tag is NoArvore)
+                .ToDictionary(n => (NoArvore)n.Tag!);
+
+            var atualizados = new List<TreeNode>();
+
+            foreach (var subpasta in ListarSubpastas(diretorio))
+            {
+                if (existentes.TryGetValue(new NoArvore(subpasta.FullName, false), out var filho))
+                {
+                    if (filho.IsExpanded)
+                        AtualizarFilhos(filho);
+                    else if (!NaoCarregado(filho))
+                    {
+                        filho.Nodes.Clear();
+                        filho.Nodes.Add(new TreeNode(TextoNoFicticio));
+                    }
+                }
+                else
+                    filho = CriarNoPasta(subpasta.Name, subpasta.FullName, "pasta");
+
+                atualizados.Add(filho);
+            }
+
+            foreach (var arquivo in ListarArquivos(diretorio))
+                atualizados.Add(existentes.GetValueOrDefault(new NoArvore(arquivo.FullName, true))
+                    ?? CriarNoArquivo(arquivo.FullName));
+
+            var manter = atualizados.ToHashSet();
+            foreach (var filho in no.Nodes.Cast<TreeNode>().Where(n => !manter.Contains(n)).ToList())
+                filho.Remove();
+
+            // Os nós mantidos já estão na ordem certa; basta inserir os novos nas posições corretas,
+            // sem remover os existentes (o que perderia o estado de expansão).
+            for (var i = 0; i < atualizados.Count; i++)
+                if (i >= no.Nodes.Count || no.Nodes[i] != atualizados[i])
+                {
+                    if (atualizados[i].Parent == no)
+                        atualizados[i].Remove();
+                    no.Nodes.Insert(i, atualizados[i]);
+                }
         }
 
         private void tsmAbrirLocal_Click(object? sender, EventArgs e)
@@ -738,8 +834,7 @@ namespace MarkdownEditor
                 _ignorarSelecao = false;
             }
 
-            _arquivoAtual = caminho;
-            Text = $"{Path.GetFileName(caminho)} - {TituloPadrao}";
+            DefinirArquivoAtual(caminho);
             RegistrarNoHistorico(new EntradaHistorico(caminho, null));
         }
 
@@ -747,11 +842,9 @@ namespace MarkdownEditor
         {
             try
             {
-                var texto = await File.ReadAllTextAsync(caminho);
-                var nome = Path.GetFileName(caminho);
-                await RenderizarAsync(texto, nome);
-                _arquivoAtual = caminho;
-                Text = $"{nome} - {TituloPadrao}";
+                var texto = await LerArquivoAsync(caminho);
+                await RenderizarAsync(texto, Path.GetFileName(caminho));
+                DefinirArquivoAtual(caminho);
             }
             catch (Exception ex)
             {
@@ -769,6 +862,211 @@ namespace MarkdownEditor
         {
             var script = $"renderContent({JsonSerializer.Serialize(texto)}, {JsonSerializer.Serialize(nome)});";
             await wvwPreview.ExecuteScriptAsync(script);
+        }
+
+        // Lê sem impedir que outro processo grave, renomeie ou exclua o arquivo durante a leitura.
+        private static async Task<string> LerArquivoAsync(string caminho)
+        {
+            await using var fluxo = new FileStream(caminho, FileMode.Open, FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete, 4096, FileOptions.Asynchronous | FileOptions.SequentialScan);
+            using var leitor = new StreamReader(fluxo);
+            return await leitor.ReadToEndAsync();
+        }
+
+        private void DefinirArquivoAtual(string? caminho)
+        {
+            var mesmoArquivo = caminho != null && string.Equals(caminho, _arquivoAtual, StringComparison.OrdinalIgnoreCase);
+            _arquivoAtual = caminho;
+            Text = caminho != null ? $"{Path.GetFileName(caminho)} - {TituloPadrao}" : TituloPadrao;
+
+            if (!mesmoArquivo || _monitorArquivo == null)
+                MonitorarArquivo(caminho);
+        }
+
+        // Monitora apenas o arquivo exibido. O FileSystemWatcher usa notificações do Windows
+        // (sem polling) e não abre o arquivo, portanto não o bloqueia para outros processos.
+        private void MonitorarArquivo(string? caminho)
+        {
+            _temporizadorRecarga.Stop();
+            _tentativasRecarga = 0;
+
+            if (_monitorArquivo != null)
+            {
+                _monitorArquivo.EnableRaisingEvents = false;
+                _monitorArquivo.Dispose();
+                _monitorArquivo = null;
+            }
+
+            var pasta = caminho != null ? Path.GetDirectoryName(caminho) : null;
+            if (string.IsNullOrEmpty(pasta))
+                return;
+
+            FileSystemWatcher? monitor = null;
+            try
+            {
+                monitor = new FileSystemWatcher(pasta, Path.GetFileName(caminho))
+                {
+                    NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.FileName,
+                    SynchronizingObject = this
+                };
+                monitor.Changed += MonitorArquivo_Evento;
+                monitor.Created += MonitorArquivo_Evento;
+                monitor.Deleted += MonitorArquivo_Evento;
+                monitor.Renamed += MonitorArquivo_Evento;
+                monitor.Error += MonitorArquivo_Evento;
+                monitor.EnableRaisingEvents = true;
+                _monitorArquivo = monitor;
+            }
+            catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+            {
+                monitor?.Dispose();
+            }
+        }
+
+        // Editores costumam gerar vários eventos por gravação (ou excluir e renomear um temporário),
+        // por isso o tratamento espera os eventos cessarem e só então confere o estado do arquivo.
+        private void MonitorArquivo_Evento(object? sender, EventArgs e)
+        {
+            if (sender == _monitorArquivo)
+                AgendarVerificacao();
+        }
+
+        private void AgendarVerificacao()
+        {
+            _temporizadorRecarga.Stop();
+            _temporizadorRecarga.Start();
+        }
+
+        private async void temporizadorRecarga_Tick(object? sender, EventArgs e)
+        {
+            _temporizadorRecarga.Stop();
+            if (_arquivoAtual == null || _monitorArquivo == null || !_previewPronto)
+                return;
+
+            if (_verificandoArquivo)
+            {
+                AgendarVerificacao();
+                return;
+            }
+
+            var caminho = _arquivoAtual;
+            _verificandoArquivo = true;
+            try
+            {
+                if (File.Exists(caminho))
+                    await RecarregarArquivoAsync(caminho);
+                else
+                    await TratarArquivoExcluidoAsync(caminho);
+            }
+            finally
+            {
+                _verificandoArquivo = false;
+            }
+        }
+
+        private async Task RecarregarArquivoAsync(string caminho)
+        {
+            string texto;
+            try
+            {
+                texto = await LerArquivoAsync(caminho);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                if (++_tentativasRecarga <= MaximoTentativasRecarga)
+                    AgendarVerificacao();
+                return;
+            }
+
+            _tentativasRecarga = 0;
+            if (!string.Equals(caminho, _arquivoAtual, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            var script = $$"""
+                (() => {
+                    const rolagem = stage.scrollTop;
+                    renderContent({{JsonSerializer.Serialize(texto)}}, {{JsonSerializer.Serialize(Path.GetFileName(caminho))}});
+                    requestAnimationFrame(() => { stage.scrollTop = rolagem; });
+                })();
+                """;
+            await wvwPreview.ExecuteScriptAsync(script);
+        }
+
+        private async Task TratarArquivoExcluidoAsync(string caminho)
+        {
+            MonitorarArquivo(null);
+            RemoverDaArvore(caminho);
+
+            MessageBox.Show(this,
+                $"O arquivo \"{Path.GetFileName(caminho)}\" foi excluído ou movido:\n{caminho}",
+                Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+
+            if (!string.Equals(caminho, _arquivoAtual, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            await wvwPreview.ExecuteScriptAsync("newBtn.click();");
+            DefinirArquivoAtual(null);
+            _entradaAtual = null;
+            AtualizarBotoesNavegacao();
+        }
+
+        private void RemoverDaArvore(string caminho)
+        {
+            var nos = LocalizarNosCarregados(caminho);
+            if (nos.Count == 0)
+                return;
+
+            _ignorarSelecao = true;
+            trvPastas.BeginUpdate();
+            try
+            {
+                foreach (var no in nos)
+                {
+                    if (trvPastas.SelectedNode == no)
+                        trvPastas.SelectedNode = null;
+                    no.Remove();
+                }
+            }
+            finally
+            {
+                trvPastas.EndUpdate();
+                _ignorarSelecao = false;
+            }
+        }
+
+        // Percorre só os nós já carregados (sem expandir) e devolve todos os nós do arquivo,
+        // já que ele pode aparecer em mais de uma raiz (ex.: Área de Trabalho e a unidade C:).
+        private List<TreeNode> LocalizarNosCarregados(string caminho)
+        {
+            var caminhoCompleto = Path.GetFullPath(caminho);
+            var encontrados = new List<TreeNode>();
+            var pendentes = new Stack<TreeNode>(trvPastas.Nodes.Cast<TreeNode>());
+
+            while (pendentes.Count > 0)
+            {
+                var no = pendentes.Pop();
+                if (no.Tag is not NoArvore info)
+                    continue;
+
+                if (info.EhArquivo)
+                {
+                    if (string.Equals(info.Caminho, caminhoCompleto, StringComparison.OrdinalIgnoreCase))
+                        encontrados.Add(no);
+                    continue;
+                }
+
+                // Raiz de unidade ("C:\") já termina com separador; não pode virar "C:\\".
+                var prefixo = Path.EndsInDirectorySeparator(info.Caminho)
+                    ? info.Caminho
+                    : info.Caminho + Path.DirectorySeparatorChar;
+                if (caminhoCompleto.StartsWith(prefixo, StringComparison.OrdinalIgnoreCase))
+                {
+                    foreach (TreeNode filho in no.Nodes)
+                        pendentes.Push(filho);
+                }
+            }
+
+            return encontrados;
         }
 
         private static bool MesmaEntrada(EntradaHistorico? a, EntradaHistorico? b)
@@ -934,8 +1232,7 @@ namespace MarkdownEditor
 
             LimparSelecaoArvore();
             await RenderizarAsync(entrada.Texto ?? string.Empty, NomeTextoColado);
-            _arquivoAtual = null;
-            Text = TituloPadrao;
+            DefinirArquivoAtual(null);
             return true;
         }
 
@@ -1001,6 +1298,13 @@ namespace MarkdownEditor
         {
             base.OnHandleCreated(e);
             AplicarTemaBarraTitulo();
+        }
+
+        protected override void OnFormClosed(FormClosedEventArgs e)
+        {
+            MonitorarArquivo(null);
+            _temporizadorRecarga.Dispose();
+            base.OnFormClosed(e);
         }
 
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
