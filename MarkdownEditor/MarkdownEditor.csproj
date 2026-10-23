@@ -6,10 +6,20 @@
     <AssemblyVersion>1.0.0</AssemblyVersion>
     <FileVersion>1.0.0</FileVersion>
     <InformationalVersion>1.0.0</InformationalVersion>
+    <Product>Markdown Editor</Product>
+    <AssemblyTitle>Markdown Editor</AssemblyTitle>
+    <Description>Visualizador e editor de arquivos Markdown, JSON, XML e texto</Description>
+    <Company>Filipe Kanitz</Company>
+    <Authors>Filipe Kanitz</Authors>
+    <Copyright>Copyright © Filipe Kanitz</Copyright>
+    <NeutralLanguage>pt-BR</NeutralLanguage>
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationIcon>..\Markdown.ico</ApplicationIcon>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <!-- Necessário para o código gerado pelo LibraryImport (NativeMethods.cs) -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,6 +29,22 @@
 
   <ItemGroup>
     <Content Include="wwwroot\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- O pacote WebView2 sempre referencia o Microsoft.Web.WebView2.Wpf.dll, que não é usado num app
+       WinForms e causa conflito de versões do WindowsBase (MSB3277). -->
+  <Target Name="RemoverReferenciaWebView2Wpf" BeforeTargets="ResolveAssemblyReferences">
+    <ItemGroup>
+      <Reference Remove="@(Reference)" Condition="'%(Filename)' == 'Microsoft.Web.WebView2.Wpf'" />
+    </ItemGroup>
+  </Target>
+
+  <!-- Arquivos parciais do frmEditor: agrupados sob o frmEditor.cs e abertos como código (não no designer) -->
+  <ItemGroup>
+    <Compile Update="frmEditor.Arvore.cs;frmEditor.Editor.cs;frmEditor.Historico.cs;frmEditor.Monitor.cs;frmEditor.Preview.cs;frmEditor.Tema.cs">
+      <DependentUpon>frmEditor.cs</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
   </ItemGroup>
 
 </Project>

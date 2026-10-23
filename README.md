@@ -17,14 +17,15 @@ Aplicação Windows Forms (.NET 10) para navegar pelas pastas do computador, vis
   - Tema claro/escuro (a escolha fica salva).
   - Copiar o conteúdo e Exportar/Imprimir (inclusive para PDF).
 - **Edição**: os botões **Visualizar** e **Editar** da barra superior alternam entre a prévia e um editor de código (Scintilla) com realce de sintaxe para Markdown, JSON e XML, nas cores do tema claro/escuro.
-  - **Salvar** (ou **Ctrl+S**) grava o arquivo na mesma codificação em que foi lido. Texto colado ou novo abre o **Salvar como**, e o arquivo salvo passa a aparecer selecionado na árvore.
+  - **Salvar** (ou **Ctrl+S**) grava o arquivo na mesma codificação em que foi lido, primeiro num temporário e só depois trocando pelo original (uma falha no meio não corrompe o arquivo). Texto colado ou novo abre o **Salvar como**, e o arquivo salvo passa a aparecer selecionado na árvore.
   - **Desfazer alterações** volta ao conteúdo original do arquivo (Ctrl+Z ainda recupera as edições).
   - O título da janela ganha `*` quando há alterações não salvas, e ao voltar para **Visualizar** a prévia mostra o texto editado.
   - Antes de trocar de arquivo, navegar no histórico, abrir um link, colar/soltar outro conteúdo ou fechar o programa, pergunta se deseja salvar as alterações pendentes.
 - **Atualização automática**: se o arquivo exibido for alterado por outro programa, ele é recarregado sozinho (mantendo a rolagem); se for excluído, sai da árvore e a visualização é fechada. Havendo alterações não salvas no editor, o programa pergunta antes de descartá-las.
+- **Visual do Windows 11** (Fluent): fonte Segoe UI Variable, ícones Segoe Fluent Icons na barra e nos menus, botões e menus com cantos arredondados, árvore no estilo do Explorer (sem linhas, seleção da linha inteira) e ícones nítidos em telas com escala alta.
 - **Tema da janela** acompanha o tema claro/escuro do visualizador (barra de título, árvore, barra de ferramentas e menus).
 - **Voltar e Avançar** entre os últimos arquivos (e textos colados) exibidos, como num navegador — guarda até 10 itens em cada direção:
-  - Botões **◀ Voltar** e **Avançar ▶** na barra superior (o tooltip mostra o nome do destino).
+  - Botões **Voltar** e **Avançar** na barra superior (o tooltip mostra o nome do destino).
   - Atalhos **Alt+←** / **Alt+→** e os botões laterais do mouse.
 - **Abrir arquivo por parâmetro**: o programa aceita o caminho de um arquivo na linha de comando, do mesmo jeito que o Windows faz no duplo clique, exibe o arquivo e o seleciona na árvore:
 
@@ -62,7 +63,7 @@ dotnet run --project MarkdownEditor
 
 Instalador para Windows gerado com [Inno Setup](https://jrsoftware.org/isinfo.php). Instala em `C:\Program Files\MarkdownEditor`, cria atalho no menu Iniciar (e, opcionalmente, na área de trabalho), registra o programa no **Abrir com** e oferece a associação padrão de `.md` e `.markdown`. A desinstalação remove tudo isso.
 
-O computador de destino precisa ter o **.NET 10 Desktop Runtime** instalado.
+O computador de destino precisa ter o **.NET 10 Desktop Runtime** instalado. Se ele (ou o WebView2 Runtime) não for encontrado, o instalador avisa e oferece abrir a página de download.
 
 Para gerar (requer o `iscc` do Inno Setup no PATH):
 
@@ -77,7 +78,14 @@ Markdown.ico                       Ícone do programa
 Release.cmd                        Compila em Release e gera o instalador
 MarkdownEditor/
   Program.cs                       Ponto de entrada; recebe o arquivo passado como argumento
-  frmEditor.cs / .Designer.cs      Tela principal: árvore de pastas + visualizador WebView2 + editor Scintilla + Voltar/Avançar
+  frmEditor.cs / .Designer.cs      Tela principal (constantes, campos, atalhos); o restante fica nos parciais:
+  frmEditor.Arvore.cs              Árvore de pastas, menu de contexto e esconder/mostrar árvore
+  frmEditor.Preview.cs             Visualizador WebView2, mensagens do HTML e links
+  frmEditor.Editor.cs              Editor Scintilla, salvar e confirmação de descarte
+  frmEditor.Monitor.cs             Atualização automática do arquivo exibido
+  frmEditor.Historico.cs           Voltar/Avançar
+  frmEditor.Tema.cs                Tema claro/escuro e visual Fluent
+  NativeMethods.cs                 Chamadas à API do Windows (P/Invoke)
   Instalador/
     Instalador.iss                 Script do Inno Setup
   wwwroot/
@@ -89,3 +97,10 @@ MarkdownEditor/
 O painel da direita é um controle **WebView2** que carrega `wwwroot/preview-md-json-xml.html`, uma cópia do projeto `preview-html` (página única, 100% offline, com `marked.js` embutido). A página é servida pelo endereço virtual `https://preview.local/`, o que habilita a área de transferência e mantém o tema salvo entre execuções.
 
 Quando um arquivo é selecionado na árvore, o programa lê o conteúdo e chama a função `renderContent(texto, nome)` da própria página, sem nenhuma alteração no HTML.
+### Segurança
+
+O conteúdo exibido (inclusive HTML embutido no Markdown) é tratado como não confiável, seguindo as [recomendações da Microsoft para WebView2](https://learn.microsoft.com/microsoft-edge/webview2/concepts/security):
+
+- Só são aceitas mensagens vindas da página do visualizador.
+- Links `http`, `https` e `mailto` abrem no aplicativo padrão; links para arquivos suportados abrem no próprio programa; **qualquer outro arquivo nunca é executado** — ele só é mostrado selecionado no Explorer. Links para caminhos de rede (`\servidor\...`) são recusados.
+- DevTools ficam desligados na versão Release.

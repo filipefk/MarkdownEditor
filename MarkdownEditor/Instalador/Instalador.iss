@@ -2,6 +2,8 @@
 Name: "brazilian"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
 
 [Setup]
+; Identificador fixo da instalação (igual ao padrão anterior do Inno, que usava o AppName), para upgrades e desinstalação estáveis
+AppId=Markdown Editor
 ArchitecturesInstallIn64BitMode=x64compatible
 AppName=Markdown Editor
 AppVersion=1.0.0
@@ -58,3 +60,52 @@ Root: HKA; Subkey: "Software\Classes\.markdown"; ValueType: string; ValueName: "
 [Run]
 ; Executa o programa após a instalação
 Filename: "{app}\MarkdownEditor.exe"; Description: "Executar o Markdown Editor"; Flags: nowait postinstall skipifsilent
+
+[Code]
+const
+  UrlDotNet = 'https://dotnet.microsoft.com/download/dotnet/10.0';
+  UrlWebView2 = 'https://go.microsoft.com/fwlink/p/?LinkId=2124703';
+  ChaveWebView2 = 'Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}';
+
+function DotNetDesktopInstalado: Boolean;
+var
+  Busca: TFindRec;
+begin
+  Result := FindFirst(ExpandConstant('{commonpf64}\dotnet\shared\Microsoft.WindowsDesktop.App\10.*'), Busca);
+  if Result then
+    FindClose(Busca);
+end;
+
+function VersaoValida(Versao: String): Boolean;
+begin
+  Result := (Versao <> '') and (Versao <> '0.0.0.0');
+end;
+
+function WebView2Instalado: Boolean;
+var
+  Versao: String;
+begin
+  Result :=
+    (RegQueryStringValue(HKLM, 'SOFTWARE\WOW6432Node\' + ChaveWebView2, 'pv', Versao) and VersaoValida(Versao)) or
+    (RegQueryStringValue(HKCU, 'Software\' + ChaveWebView2, 'pv', Versao) and VersaoValida(Versao));
+end;
+
+procedure OferecerDownload(Mensagem, Url: String);
+var
+  CodigoErro: Integer;
+begin
+  if SuppressibleMsgBox(Mensagem + #13#10#13#10 + 'Deseja abrir a página de download agora? A instalação continuará normalmente.',
+    mbConfirmation, MB_YESNO, IDNO) = IDYES then
+    ShellExec('open', Url, '', '', SW_SHOWNORMAL, ewNoWait, CodigoErro);
+end;
+
+function InitializeSetup: Boolean;
+begin
+  Result := True;
+
+  if not DotNetDesktopInstalado then
+    OferecerDownload('O Markdown Editor precisa do .NET 10 Desktop Runtime (x64), que não foi encontrado neste computador.', UrlDotNet);
+
+  if not WebView2Instalado then
+    OferecerDownload('A visualização usa o Microsoft Edge WebView2 Runtime, que não foi encontrado neste computador.', UrlWebView2);
+end;

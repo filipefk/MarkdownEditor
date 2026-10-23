@@ -88,14 +88,18 @@ namespace MarkdownEditor
             // 
             // trvPastas
             //
+            trvPastas.BorderStyle = BorderStyle.None;
             trvPastas.ContextMenuStrip = cmsArvore;
             trvPastas.Dock = DockStyle.Fill;
+            trvPastas.FullRowSelect = true;
             trvPastas.HideSelection = false;
+            trvPastas.HotTracking = true;
             trvPastas.ImageIndex = 0;
             trvPastas.ImageList = imlIcones;
             trvPastas.Location = new Point(0, 0);
             trvPastas.Name = "trvPastas";
             trvPastas.SelectedImageIndex = 0;
+            trvPastas.ShowLines = false;
             trvPastas.Size = new Size(280, 597);
             trvPastas.TabIndex = 0;
             trvPastas.BeforeExpand += trvPastas_BeforeExpand;
@@ -147,7 +151,7 @@ namespace MarkdownEditor
             tsbArvore.DisplayStyle = ToolStripItemDisplayStyle.Text;
             tsbArvore.Name = "tsbArvore";
             tsbArvore.Size = new Size(110, 22);
-            tsbArvore.Text = "◧ Esconder árvore";
+            tsbArvore.Text = "Esconder árvore";
             tsbArvore.Click += tsbArvore_Click;
             //
             // tssArvore
@@ -161,7 +165,7 @@ namespace MarkdownEditor
             tsbVoltar.Enabled = false;
             tsbVoltar.Name = "tsbVoltar";
             tsbVoltar.Size = new Size(60, 22);
-            tsbVoltar.Text = "◀ Voltar";
+            tsbVoltar.Text = "Voltar";
             tsbVoltar.Click += tsbVoltar_Click;
             //
             // tsbAvancar
@@ -170,7 +174,7 @@ namespace MarkdownEditor
             tsbAvancar.Enabled = false;
             tsbAvancar.Name = "tsbAvancar";
             tsbAvancar.Size = new Size(68, 22);
-            tsbAvancar.Text = "Avançar ▶";
+            tsbAvancar.Text = "Avançar";
             tsbAvancar.Click += tsbAvancar_Click;
             //
             // tssModo
@@ -208,7 +212,7 @@ namespace MarkdownEditor
             tsbSalvar.Enabled = false;
             tsbSalvar.Name = "tsbSalvar";
             tsbSalvar.Size = new Size(60, 22);
-            tsbSalvar.Text = "💾 Salvar";
+            tsbSalvar.Text = "Salvar";
             tsbSalvar.ToolTipText = "Salvar (Ctrl+S)";
             tsbSalvar.Visible = false;
             tsbSalvar.Click += tsbSalvar_Click;
@@ -219,7 +223,7 @@ namespace MarkdownEditor
             tsbDesfazer.Enabled = false;
             tsbDesfazer.Name = "tsbDesfazer";
             tsbDesfazer.Size = new Size(70, 22);
-            tsbDesfazer.Text = "↶ Desfazer";
+            tsbDesfazer.Text = "Desfazer";
             tsbDesfazer.ToolTipText = "Desfazer as alterações não salvas";
             tsbDesfazer.Visible = false;
             tsbDesfazer.Click += tsbDesfazer_Click;
