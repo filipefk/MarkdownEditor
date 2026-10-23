@@ -1,8 +1,10 @@
-using System.Diagnostics;
-using System.Runtime.InteropServices;
-using System.Text.Json;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Win32;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Text.Json;
+using EstiloEditor = ScintillaNET.Style;
 
 namespace MarkdownEditor
 {
@@ -27,6 +29,10 @@ namespace MarkdownEditor
         private const int LarguraMinimaArvore = 50;
         private const string TextoEsconderArvore = "◧ Esconder árvore";
         private const string TextoMostrarArvore = "◨ Mostrar árvore";
+        private const string FiltroSalvar =
+            "Markdown (*.md;*.markdown)|*.md;*.markdown|JSON (*.json)|*.json|XML (*.xml)|*.xml|Texto (*.txt)|*.txt";
+        private const string FonteEditor = "Consolas";
+        private const int TamanhoFonteEditor = 10;
         private const int WM_APPCOMMAND = 0x0319;
         private const int APPCOMMAND_BROWSER_BACKWARD = 1;
         private const int APPCOMMAND_BROWSER_FORWARD = 2;
@@ -169,6 +175,19 @@ namespace MarkdownEditor
         private bool _verificandoArquivo;
         private int _tentativasRecarga;
 
+        private static readonly Encoding CodificacaoPadrao = new UTF8Encoding(false);
+
+        private bool _modoEdicao;
+        private bool _carregandoEditor;
+        private bool _previaDesatualizada;
+        private bool _salvando;
+        private bool _fechamentoConfirmado;
+        private int _digitosMargem;
+        // Último conteúdo conhecido em disco (ou o texto colado original); serve para descartar
+        // alterações e para distinguir uma alteração externa do nosso próprio salvamento.
+        private string _textoOriginal = string.Empty;
+        private Encoding _codificacaoAtual = CodificacaoPadrao;
+
         private readonly string? _arquivoInicial;
 
         public frmEditor() : this(null)
@@ -182,6 +201,7 @@ namespace MarkdownEditor
             _arquivoInicial = arquivoInicial;
             _temporizadorRecarga = new System.Windows.Forms.Timer { Interval = IntervaloRecargaMs };
             _temporizadorRecarga.Tick += temporizadorRecarga_Tick;
+            ConfigurarEditor();
         }
 
         private async void frmEditor_Load(object? sender, EventArgs e)
@@ -421,6 +441,19 @@ namespace MarkdownEditor
             }
         }
 
+        // A confirmação é assíncrona (pode salvar), então a seleção é cancelada aqui e refeita
+        // depois, já sem alterações pendentes no editor.
+        private async void trvPastas_BeforeSelect(object? sender, TreeViewCancelEventArgs e)
+        {
+            if (_ignorarSelecao || !sciEditor.Modified || e.Node?.Tag is not NoArvore { EhArquivo: true })
+                return;
+
+            e.Cancel = true;
+            var no = e.Node;
+            if (await ConfirmarDescarteAsync() && no.TreeView == trvPastas)
+                trvPastas.SelectedNode = no;
+        }
+
         private async void trvPastas_AfterSelect(object? sender, TreeViewEventArgs e)
         {
             if (_ignorarSelecao || e.Node?.Tag is not NoArvore { EhArquivo: true } info)
@@ -523,8 +556,7 @@ namespace MarkdownEditor
                     break;
 
                 case MensagemNovo:
-                    LimparSelecaoArvore();
-                    DefinirArquivoAtual(null);
+                    TratarNovo();
                     break;
 
                 case MensagemArquivoSolto:
@@ -541,11 +573,42 @@ namespace MarkdownEditor
             }
         }
 
-        private void RegistrarTextoColado(string texto)
+        private async void RegistrarTextoColado(string texto)
         {
+            if (!await ConfirmarDescarteAsync())
+            {
+                await RestaurarPreviaAsync();
+                return;
+            }
+
             LimparSelecaoArvore();
             DefinirArquivoAtual(null);
+            CarregarNoEditor(texto, null, null);
             RegistrarNoHistorico(new EntradaHistorico(null, texto));
+        }
+
+        private async void TratarNovo()
+        {
+            if (!await ConfirmarDescarteAsync())
+            {
+                await RestaurarPreviaAsync();
+                return;
+            }
+
+            LimparSelecaoArvore();
+            DefinirArquivoAtual(null);
+            CarregarNoEditor(string.Empty, null, null);
+        }
+
+        // O HTML já exibiu o novo conteúdo por conta própria (colar, soltar, "Novo"); se o usuário
+        // desistiu de descartar as alterações, a prévia volta a mostrar o texto do editor.
+        private async Task RestaurarPreviaAsync()
+        {
+            if (!_previewPronto)
+                return;
+
+            await RenderizarAsync(sciEditor.Text, NomeConteudoAtual());
+            _previaDesatualizada = false;
         }
 
         private void LimparSelecaoArvore()
@@ -632,6 +695,9 @@ namespace MarkdownEditor
                 AbrirComShell(caminho);
                 return;
             }
+
+            if (!await ConfirmarDescarteAsync())
+                return;
 
             if (SelecionarNaArvore(caminho))
                 return;
@@ -821,8 +887,28 @@ namespace MarkdownEditor
             e.MenuItems.Add(CriarItem(textos.CopiarNome, CopiarNome));
         }
 
-        private void PosicionarArquivoSolto(string caminho)
+        private async void PosicionarArquivoSolto(string caminho)
         {
+            if (!await ConfirmarDescarteAsync())
+            {
+                await RestaurarPreviaAsync();
+                return;
+            }
+
+            string texto;
+            Encoding codificacao;
+            try
+            {
+                (texto, codificacao) = await LerArquivoAsync(caminho);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, $"Não foi possível abrir o arquivo:\n{caminho}\n\n{ex.Message}",
+                    Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                await RestaurarPreviaAsync();
+                return;
+            }
+
             _ignorarSelecao = true;
             try
             {
@@ -835,6 +921,7 @@ namespace MarkdownEditor
             }
 
             DefinirArquivoAtual(caminho);
+            CarregarNoEditor(texto, caminho, codificacao);
             RegistrarNoHistorico(new EntradaHistorico(caminho, null));
         }
 
@@ -842,9 +929,10 @@ namespace MarkdownEditor
         {
             try
             {
-                var texto = await LerArquivoAsync(caminho);
+                var (texto, codificacao) = await LerArquivoAsync(caminho);
                 await RenderizarAsync(texto, Path.GetFileName(caminho));
                 DefinirArquivoAtual(caminho);
+                CarregarNoEditor(texto, caminho, codificacao);
             }
             catch (Exception ex)
             {
@@ -864,23 +952,363 @@ namespace MarkdownEditor
             await wvwPreview.ExecuteScriptAsync(script);
         }
 
+        private async Task RenderizarPreservandoRolagemAsync(string texto, string nome)
+        {
+            var script = $$"""
+                (() => {
+                    const rolagem = stage.scrollTop;
+                    renderContent({{JsonSerializer.Serialize(texto)}}, {{JsonSerializer.Serialize(nome)}});
+                    requestAnimationFrame(() => { stage.scrollTop = rolagem; });
+                })();
+                """;
+            await wvwPreview.ExecuteScriptAsync(script);
+        }
+
         // Lê sem impedir que outro processo grave, renomeie ou exclua o arquivo durante a leitura.
-        private static async Task<string> LerArquivoAsync(string caminho)
+        // A codificação parte de UTF-8 sem BOM; se houver BOM, a detectada é devolvida para regravar igual.
+        private static async Task<(string Texto, Encoding Codificacao)> LerArquivoAsync(string caminho)
         {
             await using var fluxo = new FileStream(caminho, FileMode.Open, FileAccess.Read,
                 FileShare.ReadWrite | FileShare.Delete, 4096, FileOptions.Asynchronous | FileOptions.SequentialScan);
-            using var leitor = new StreamReader(fluxo);
-            return await leitor.ReadToEndAsync();
+            using var leitor = new StreamReader(fluxo, CodificacaoPadrao, detectEncodingFromByteOrderMarks: true);
+            var texto = await leitor.ReadToEndAsync();
+            return (texto, leitor.CurrentEncoding);
         }
 
         private void DefinirArquivoAtual(string? caminho)
         {
             var mesmoArquivo = caminho != null && string.Equals(caminho, _arquivoAtual, StringComparison.OrdinalIgnoreCase);
             _arquivoAtual = caminho;
-            Text = caminho != null ? $"{Path.GetFileName(caminho)} - {TituloPadrao}" : TituloPadrao;
+            AtualizarTitulo();
+            AtualizarBotaoSalvar();
 
             if (!mesmoArquivo || _monitorArquivo == null)
                 MonitorarArquivo(caminho);
+        }
+
+        private void AtualizarTitulo()
+        {
+            var titulo = _arquivoAtual != null ? $"{Path.GetFileName(_arquivoAtual)} - {TituloPadrao}" : TituloPadrao;
+            Text = sciEditor.Modified ? "*" + titulo : titulo;
+        }
+
+        private string NomeConteudoAtual() =>
+            _arquivoAtual != null ? Path.GetFileName(_arquivoAtual) : NomeTextoColado;
+
+        private void ConfigurarEditor()
+        {
+            sciEditor.WrapMode = ScintillaNET.WrapMode.Word;
+            sciEditor.ScrollWidthTracking = true;
+            sciEditor.ScrollWidth = 1;
+            sciEditor.TabWidth = 4;
+            sciEditor.Margins[0].Type = ScintillaNET.MarginType.Number;
+            for (var i = 1; i < sciEditor.Margins.Count; i++)
+                sciEditor.Margins[i].Width = 0;
+
+            DefinirLexer(null);
+            AtualizarMargemNumeros();
+        }
+
+        private void DefinirLexer(string? caminho)
+        {
+            var extensao = caminho != null ? Path.GetExtension(caminho).ToLowerInvariant() : ".md";
+            var lexer = extensao switch
+            {
+                ".json" => "json",
+                ".xml" => "xml",
+                ".txt" => "null",
+                _ => "markdown"
+            };
+
+            if (sciEditor.LexerName != lexer)
+            {
+                try
+                {
+                    sciEditor.LexerName = lexer;
+                }
+                catch (InvalidOperationException)
+                {
+                    return;
+                }
+            }
+
+            AplicarEstilosEditor();
+        }
+
+        private void CarregarNoEditor(string texto, string? caminho, Encoding? codificacao)
+        {
+            _carregandoEditor = true;
+            try
+            {
+                DefinirLexer(caminho);
+                sciEditor.Text = texto;
+                sciEditor.EmptyUndoBuffer();
+                sciEditor.SetSavePoint();
+            }
+            finally
+            {
+                _carregandoEditor = false;
+            }
+
+            _textoOriginal = texto;
+            _codificacaoAtual = codificacao ?? CodificacaoPadrao;
+            _previaDesatualizada = false;
+            AtualizarMargemNumeros();
+            AtualizarBotaoSalvar();
+        }
+
+        // Usado quando o arquivo muda fora do programa: troca o texto mantendo cursor e rolagem.
+        private void RecarregarNoEditor(string texto, Encoding codificacao)
+        {
+            var posicao = sciEditor.CurrentPosition;
+            var primeiraLinha = sciEditor.FirstVisibleLine;
+
+            CarregarNoEditor(texto, _arquivoAtual, codificacao);
+
+            sciEditor.GotoPosition(Math.Min(posicao, sciEditor.TextLength));
+            sciEditor.FirstVisibleLine = primeiraLinha;
+        }
+
+        private void AtualizarMargemNumeros()
+        {
+            var digitos = Math.Max(sciEditor.Lines.Count.ToString().Length, 2);
+            if (digitos == _digitosMargem)
+                return;
+
+            _digitosMargem = digitos;
+            sciEditor.Margins[0].Width = sciEditor.TextWidth(EstiloEditor.LineNumber, new string('9', digitos + 1));
+        }
+
+        private void AtualizarBotaoSalvar()
+        {
+            // Texto colado (sem arquivo) pode ser salvo mesmo sem edição: abre o "Salvar como".
+            tsbSalvar.Enabled = sciEditor.Modified || (_arquivoAtual == null && sciEditor.TextLength > 0);
+            tsbSalvar.ToolTipText = _arquivoAtual == null ? "Salvar como... (Ctrl+S)" : "Salvar (Ctrl+S)";
+            tsbDesfazer.Enabled = sciEditor.Modified;
+            AtualizarTitulo();
+        }
+
+        private void sciEditor_TextChanged(object? sender, EventArgs e)
+        {
+            if (!_carregandoEditor)
+                _previaDesatualizada = true;
+
+            AtualizarMargemNumeros();
+            AtualizarBotaoSalvar();
+        }
+
+        private void sciEditor_SavePointAlterado(object? sender, EventArgs e) => AtualizarBotaoSalvar();
+
+        private async void tsbVisualizar_Click(object? sender, EventArgs e) => await AlternarModoAsync(false);
+
+        private async void tsbEditar_Click(object? sender, EventArgs e) => await AlternarModoAsync(true);
+
+        private async Task AlternarModoAsync(bool editar)
+        {
+            if (_modoEdicao == editar)
+                return;
+
+            _modoEdicao = editar;
+            tsbVisualizar.Checked = !editar;
+            tsbEditar.Checked = editar;
+            tssSalvar.Visible = editar;
+            tsbSalvar.Visible = editar;
+            tsbDesfazer.Visible = editar;
+            sciEditor.Visible = editar;
+            wvwPreview.Visible = !editar;
+
+            if (editar)
+            {
+                sciEditor.Focus();
+                return;
+            }
+
+            wvwPreview.Focus();
+            await AtualizarPreviaAsync();
+        }
+
+        private async Task AtualizarPreviaAsync()
+        {
+            if (!_previaDesatualizada || !_previewPronto)
+                return;
+
+            _previaDesatualizada = false;
+            await RenderizarPreservandoRolagemAsync(sciEditor.Text, NomeConteudoAtual());
+        }
+
+        private async void tsbSalvar_Click(object? sender, EventArgs e) => await SalvarAsync();
+
+        private void tsbDesfazer_Click(object? sender, EventArgs e) => DesfazerAlteracoes();
+
+        // Volta ao último conteúdo salvo como uma única ação do undo do editor,
+        // então um Ctrl+Z ainda recupera as edições descartadas.
+        private void DesfazerAlteracoes()
+        {
+            if (!sciEditor.Modified)
+                return;
+
+            var posicao = sciEditor.CurrentPosition;
+            var primeiraLinha = sciEditor.FirstVisibleLine;
+
+            sciEditor.Text = _textoOriginal;
+            sciEditor.SetSavePoint();
+
+            sciEditor.GotoPosition(Math.Min(posicao, sciEditor.TextLength));
+            sciEditor.FirstVisibleLine = primeiraLinha;
+            sciEditor.Focus();
+        }
+
+        private async Task<bool> SalvarAsync(bool atualizarPrevia = true)
+        {
+            if (_salvando)
+                return false;
+
+            _salvando = true;
+            try
+            {
+                if (_arquivoAtual == null)
+                    return await SalvarComoAsync(atualizarPrevia);
+
+                var texto = sciEditor.Text;
+                if (!await GravarArquivoAsync(_arquivoAtual, texto, _codificacaoAtual))
+                    return false;
+
+                _textoOriginal = texto;
+                sciEditor.SetSavePoint();
+                AtualizarBotaoSalvar();
+                if (atualizarPrevia)
+                    await AtualizarPreviaAsync();
+                return true;
+            }
+            finally
+            {
+                _salvando = false;
+            }
+        }
+
+        private async Task<bool> SalvarComoAsync(bool atualizarPrevia)
+        {
+            using var dialogo = new SaveFileDialog
+            {
+                Title = "Salvar como",
+                Filter = FiltroSalvar,
+                DefaultExt = "md",
+                AddExtension = true,
+                OverwritePrompt = true,
+                InitialDirectory = PastaInicialSalvar()
+            };
+            if (dialogo.ShowDialog(this) != DialogResult.OK)
+                return false;
+
+            var caminho = dialogo.FileName;
+            var texto = sciEditor.Text;
+            if (!await GravarArquivoAsync(caminho, texto, _codificacaoAtual))
+                return false;
+
+            _textoOriginal = texto;
+            sciEditor.SetSavePoint();
+            DefinirLexer(caminho);
+            DefinirArquivoAtual(caminho);
+            _entradaAtual = new EntradaHistorico(caminho, null);
+            AtualizarBotoesNavegacao();
+            MostrarNaArvore(caminho);
+
+            if (atualizarPrevia && _previewPronto)
+            {
+                _previaDesatualizada = false;
+                await RenderizarPreservandoRolagemAsync(texto, Path.GetFileName(caminho));
+            }
+
+            return true;
+        }
+
+        private string PastaInicialSalvar()
+        {
+            if (trvPastas.SelectedNode?.Tag is NoArvore info)
+            {
+                var pasta = info.EhArquivo ? Path.GetDirectoryName(info.Caminho) : info.Caminho;
+                if (!string.IsNullOrEmpty(pasta) && Directory.Exists(pasta))
+                    return pasta;
+            }
+
+            return Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+        }
+
+        private async Task<bool> GravarArquivoAsync(string caminho, string texto, Encoding codificacao)
+        {
+            try
+            {
+                await File.WriteAllTextAsync(caminho, texto, codificacao);
+                return true;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException or ArgumentException)
+            {
+                MessageBox.Show(this, $"Não foi possível salvar o arquivo:\n{caminho}\n\n{ex.Message}",
+                    Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+        }
+
+        // Recarrega a pasta do arquivo recém-criado nas raízes em que ela já está carregada
+        // e seleciona o arquivo na árvore, sem reexibi-lo.
+        private void MostrarNaArvore(string caminho)
+        {
+            var pasta = Path.GetDirectoryName(caminho);
+            if (!string.IsNullOrEmpty(pasta))
+            {
+                foreach (var no in LocalizarNosCarregados(pasta))
+                    AtualizarPasta(no);
+            }
+
+            _ignorarSelecao = true;
+            try
+            {
+                if (!SelecionarNaArvore(caminho))
+                    trvPastas.SelectedNode = null;
+            }
+            finally
+            {
+                _ignorarSelecao = false;
+            }
+        }
+
+        // Retorna false se o usuário cancelar (ou se o salvamento não acontecer).
+        // "Não" descarta as alterações, voltando o editor ao conteúdo original.
+        private async Task<bool> ConfirmarDescarteAsync()
+        {
+            if (!sciEditor.Modified)
+                return true;
+
+            var resposta = MessageBox.Show(this,
+                $"Deseja salvar as alterações em \"{NomeConteudoAtual()}\"?",
+                Text, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+
+            switch (resposta)
+            {
+                case DialogResult.Yes:
+                    return await SalvarAsync(atualizarPrevia: false);
+
+                case DialogResult.No:
+                    CarregarNoEditor(_textoOriginal, _arquivoAtual, _codificacaoAtual);
+                    _previaDesatualizada = true;
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+
+        private async void frmEditor_FormClosing(object? sender, FormClosingEventArgs e)
+        {
+            if (_fechamentoConfirmado || !sciEditor.Modified)
+                return;
+
+            e.Cancel = true;
+            if (!await ConfirmarDescarteAsync())
+                return;
+
+            _fechamentoConfirmado = true;
+            Close();
         }
 
         // Monitora apenas o arquivo exibido. O FileSystemWatcher usa notificações do Windows
@@ -904,7 +1332,7 @@ namespace MarkdownEditor
             FileSystemWatcher? monitor = null;
             try
             {
-                monitor = new FileSystemWatcher(pasta, Path.GetFileName(caminho))
+                monitor = new FileSystemWatcher(pasta, Path.GetFileName(caminho!))
                 {
                     NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.FileName,
                     SynchronizingObject = this
@@ -967,9 +1395,10 @@ namespace MarkdownEditor
         private async Task RecarregarArquivoAsync(string caminho)
         {
             string texto;
+            Encoding codificacao;
             try
             {
-                texto = await LerArquivoAsync(caminho);
+                (texto, codificacao) = await LerArquivoAsync(caminho);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
@@ -982,14 +1411,30 @@ namespace MarkdownEditor
             if (!string.Equals(caminho, _arquivoAtual, StringComparison.OrdinalIgnoreCase))
                 return;
 
-            var script = $$"""
-                (() => {
-                    const rolagem = stage.scrollTop;
-                    renderContent({{JsonSerializer.Serialize(texto)}}, {{JsonSerializer.Serialize(Path.GetFileName(caminho))}});
-                    requestAnimationFrame(() => { stage.scrollTop = rolagem; });
-                })();
-                """;
-            await wvwPreview.ExecuteScriptAsync(script);
+            // Conteúdo igual ao conhecido: nada mudou de fato (inclui o nosso próprio salvamento).
+            if (string.Equals(texto, _textoOriginal, StringComparison.Ordinal))
+                return;
+
+            if (sciEditor.Modified)
+            {
+                var resposta = MessageBox.Show(this,
+                    $"O arquivo \"{Path.GetFileName(caminho)}\" foi alterado fora do editor.\n\n" +
+                    "Deseja recarregá-lo e descartar as suas alterações?",
+                    Text, MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+
+                if (!string.Equals(caminho, _arquivoAtual, StringComparison.OrdinalIgnoreCase))
+                    return;
+
+                if (resposta != DialogResult.Yes)
+                {
+                    _textoOriginal = texto;
+                    _codificacaoAtual = codificacao;
+                    return;
+                }
+            }
+
+            RecarregarNoEditor(texto, codificacao);
+            await RenderizarPreservandoRolagemAsync(texto, Path.GetFileName(caminho));
         }
 
         private async Task TratarArquivoExcluidoAsync(string caminho)
@@ -997,13 +1442,26 @@ namespace MarkdownEditor
             MonitorarArquivo(null);
             RemoverDaArvore(caminho);
 
+            var arquivoExibido = string.Equals(caminho, _arquivoAtual, StringComparison.OrdinalIgnoreCase);
+            var manterAlteracoes = arquivoExibido && sciEditor.Modified;
+
             MessageBox.Show(this,
-                $"O arquivo \"{Path.GetFileName(caminho)}\" foi excluído ou movido:\n{caminho}",
+                $"O arquivo \"{Path.GetFileName(caminho)}\" foi excluído ou movido:\n{caminho}" +
+                (manterAlteracoes ? "\n\nAs alterações continuam no editor; use Salvar para gravá-las em um novo arquivo." : string.Empty),
                 Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
 
-            if (!string.Equals(caminho, _arquivoAtual, StringComparison.OrdinalIgnoreCase))
+            if (!arquivoExibido || !string.Equals(caminho, _arquivoAtual, StringComparison.OrdinalIgnoreCase))
                 return;
 
+            if (manterAlteracoes && sciEditor.Modified)
+            {
+                DefinirArquivoAtual(null);
+                _entradaAtual = null;
+                AtualizarBotoesNavegacao();
+                return;
+            }
+
+            CarregarNoEditor(string.Empty, null, null);
             await wvwPreview.ExecuteScriptAsync("newBtn.click();");
             DefinirArquivoAtual(null);
             _entradaAtual = null;
@@ -1034,11 +1492,11 @@ namespace MarkdownEditor
             }
         }
 
-        // Percorre só os nós já carregados (sem expandir) e devolve todos os nós do arquivo,
+        // Percorre só os nós já carregados (sem expandir) e devolve todos os nós do arquivo ou pasta,
         // já que ele pode aparecer em mais de uma raiz (ex.: Área de Trabalho e a unidade C:).
         private List<TreeNode> LocalizarNosCarregados(string caminho)
         {
-            var caminhoCompleto = Path.GetFullPath(caminho);
+            var caminhoCompleto = Path.TrimEndingDirectorySeparator(Path.GetFullPath(caminho));
             var encontrados = new List<TreeNode>();
             var pendentes = new Stack<TreeNode>(trvPastas.Nodes.Cast<TreeNode>());
 
@@ -1048,12 +1506,14 @@ namespace MarkdownEditor
                 if (no.Tag is not NoArvore info)
                     continue;
 
-                if (info.EhArquivo)
+                if (string.Equals(Path.TrimEndingDirectorySeparator(info.Caminho), caminhoCompleto, StringComparison.OrdinalIgnoreCase))
                 {
-                    if (string.Equals(info.Caminho, caminhoCompleto, StringComparison.OrdinalIgnoreCase))
-                        encontrados.Add(no);
+                    encontrados.Add(no);
                     continue;
                 }
+
+                if (info.EhArquivo)
+                    continue;
 
                 // Raiz de unidade ("C:\") já termina com separador; não pode virar "C:\\".
                 var prefixo = Path.EndsInDirectorySeparator(info.Caminho)
@@ -1195,6 +1655,9 @@ namespace MarkdownEditor
             _navegandoHistorico = true;
             try
             {
+                if (!await ConfirmarDescarteAsync() || origem.Last == null)
+                    return;
+
                 var entrada = origem.Last.Value;
                 origem.RemoveLast();
 
@@ -1233,6 +1696,7 @@ namespace MarkdownEditor
             LimparSelecaoArvore();
             await RenderizarAsync(entrada.Texto ?? string.Empty, NomeTextoColado);
             DefinirArquivoAtual(null);
+            CarregarNoEditor(entrada.Texto ?? string.Empty, null, null);
             return true;
         }
 
@@ -1279,10 +1743,95 @@ namespace MarkdownEditor
             cmsArvore.ForeColor = corTexto;
 
             wvwPreview.DefaultBackgroundColor = corFundo;
+            AplicarEstilosEditor();
 
             AplicarTemaBarraTitulo();
             if (trvPastas.IsHandleCreated)
                 SetWindowTheme(trvPastas.Handle, escuro ? "DarkMode_Explorer" : "Explorer", null);
+        }
+
+        // Cores do VS Code Light+/Dark+. Os números de estilo dependem do lexer,
+        // por isso as cores de sintaxe são reaplicadas a cada troca de lexer.
+        private void AplicarEstilosEditor()
+        {
+            var escuro = _temaEscuro ?? false;
+
+            sciEditor.StyleResetDefault();
+            var padrao = sciEditor.Styles[EstiloEditor.Default];
+            padrao.Font = FonteEditor;
+            padrao.Size = TamanhoFonteEditor;
+            padrao.BackColor = escuro ? CorFundoEscuro : CorFundoClaro;
+            padrao.ForeColor = escuro ? CorTextoEscuro : CorTextoClaro;
+            sciEditor.StyleClearAll();
+
+            var numeros = sciEditor.Styles[EstiloEditor.LineNumber];
+            numeros.BackColor = escuro ? CorPainelEscuro : CorPainelClaro;
+            numeros.ForeColor = ColorTranslator.FromHtml(escuro ? "#858585" : "#237893");
+
+            sciEditor.CaretForeColor = ColorTranslator.FromHtml(escuro ? "#AEAFAD" : "#000000");
+            sciEditor.SelectionBackColor = ColorTranslator.FromHtml(escuro ? "#264F78" : "#ADD6FF");
+
+            void Cor(int estilo, string corEscuro, string corClaro, bool negrito = false, bool italico = false)
+            {
+                var s = sciEditor.Styles[estilo];
+                s.ForeColor = ColorTranslator.FromHtml(escuro ? corEscuro : corClaro);
+                s.Bold = negrito;
+                s.Italic = italico;
+            }
+
+            switch (sciEditor.LexerName)
+            {
+                case "markdown":
+                    foreach (var titulo in new[] { EstiloEditor.Markdown.Header1, EstiloEditor.Markdown.Header2, EstiloEditor.Markdown.Header3,
+                                                   EstiloEditor.Markdown.Header4, EstiloEditor.Markdown.Header5, EstiloEditor.Markdown.Header6 })
+                        Cor(titulo, "#569CD6", "#800000", negrito: true);
+                    Cor(EstiloEditor.Markdown.Strong1, "#569CD6", "#000080", negrito: true);
+                    Cor(EstiloEditor.Markdown.Strong2, "#569CD6", "#000080", negrito: true);
+                    Cor(EstiloEditor.Markdown.Em1, "#D4D4D4", "#1E1E1E", italico: true);
+                    Cor(EstiloEditor.Markdown.Em2, "#D4D4D4", "#1E1E1E", italico: true);
+                    Cor(EstiloEditor.Markdown.Code, "#CE9178", "#800000");
+                    Cor(EstiloEditor.Markdown.Code2, "#CE9178", "#800000");
+                    Cor(EstiloEditor.Markdown.CodeBk, "#CE9178", "#800000");
+                    Cor(EstiloEditor.Markdown.PreChar, "#CE9178", "#800000");
+                    Cor(EstiloEditor.Markdown.UListItem, "#6796E6", "#0451A5");
+                    Cor(EstiloEditor.Markdown.OListItem, "#6796E6", "#0451A5");
+                    Cor(EstiloEditor.Markdown.BlockQuote, "#6A9955", "#0451A5");
+                    Cor(EstiloEditor.Markdown.Strikeout, "#808080", "#808080");
+                    Cor(EstiloEditor.Markdown.HRule, "#808080", "#808080");
+                    Cor(EstiloEditor.Markdown.Link, "#3794FF", "#006AB1");
+                    break;
+
+                case "json":
+                    Cor(EstiloEditor.Json.PropertyName, "#9CDCFE", "#0451A5");
+                    Cor(EstiloEditor.Json.String, "#CE9178", "#A31515");
+                    Cor(EstiloEditor.Json.StringEol, "#F44747", "#CD3131");
+                    Cor(EstiloEditor.Json.Number, "#B5CEA8", "#098658");
+                    Cor(EstiloEditor.Json.Keyword, "#569CD6", "#0000FF");
+                    Cor(EstiloEditor.Json.LdKeyword, "#569CD6", "#0000FF");
+                    Cor(EstiloEditor.Json.EscapeSequence, "#D7BA7D", "#EE0000");
+                    Cor(EstiloEditor.Json.LineComment, "#6A9955", "#008000");
+                    Cor(EstiloEditor.Json.BlockComment, "#6A9955", "#008000");
+                    Cor(EstiloEditor.Json.Uri, "#3794FF", "#006AB1");
+                    Cor(EstiloEditor.Json.Error, "#F44747", "#CD3131");
+                    break;
+
+                case "xml":
+                    foreach (var tag in new[] { EstiloEditor.Xml.Tag, EstiloEditor.Xml.TagUnknown, EstiloEditor.Xml.TagEnd })
+                        Cor(tag, "#569CD6", "#800000");
+                    Cor(EstiloEditor.Xml.Attribute, "#9CDCFE", "#E50000");
+                    Cor(EstiloEditor.Xml.AttributeUnknown, "#9CDCFE", "#E50000");
+                    Cor(EstiloEditor.Xml.DoubleString, "#CE9178", "#0000FF");
+                    Cor(EstiloEditor.Xml.SingleString, "#CE9178", "#0000FF");
+                    Cor(EstiloEditor.Xml.Value, "#CE9178", "#0000FF");
+                    Cor(EstiloEditor.Xml.Number, "#B5CEA8", "#098658");
+                    Cor(EstiloEditor.Xml.Comment, "#6A9955", "#008000");
+                    Cor(EstiloEditor.Xml.Entity, "#569CD6", "#0000FF");
+                    Cor(EstiloEditor.Xml.CData, "#CE9178", "#A31515");
+                    Cor(EstiloEditor.Xml.XmlStart, "#808080", "#800000");
+                    Cor(EstiloEditor.Xml.XmlEnd, "#808080", "#800000");
+                    Cor(EstiloEditor.Xml.Question, "#808080", "#800000");
+                    break;
+            }
         }
 
         private void AplicarTemaBarraTitulo()
@@ -1311,6 +1860,13 @@ namespace MarkdownEditor
         {
             if (wvwPreview.Focused)
                 return base.ProcessCmdKey(ref msg, keyData);
+
+            if (keyData == (Keys.Control | Keys.S) && _modoEdicao)
+            {
+                if (tsbSalvar.Enabled)
+                    _ = SalvarAsync();
+                return true;
+            }
 
             switch (keyData)
             {
@@ -1387,6 +1943,11 @@ namespace MarkdownEditor
             public override Color ButtonPressedGradientMiddle => Pressionado;
             public override Color ButtonPressedGradientEnd => Pressionado;
             public override Color ButtonPressedBorder => Borda;
+            public override Color ButtonCheckedHighlight => Pressionado;
+            public override Color ButtonCheckedHighlightBorder => Borda;
+            public override Color ButtonCheckedGradientBegin => Pressionado;
+            public override Color ButtonCheckedGradientMiddle => Pressionado;
+            public override Color ButtonCheckedGradientEnd => Pressionado;
             public override Color SeparatorDark => Borda;
             public override Color SeparatorLight => Painel;
             public override Color ToolStripDropDownBackground => Painel;

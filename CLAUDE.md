@@ -2,16 +2,16 @@
 
 ## O que é
 
-Aplicação Windows Forms (`net10.0-windows`) para visualizar arquivos `.md`, `.markdown`, `.json`, `.xml` e `.txt`. Nesta etapa é **somente visualização**; as rotinas de **edição** do Markdown virão depois (ainda não existe nenhum código de edição).
+Aplicação Windows Forms (`net10.0-windows`) para visualizar e editar arquivos `.md`, `.markdown`, `.json`, `.xml` e `.txt`.
 
 Solução: `MarkdownEditor.slnx` com um único projeto, `MarkdownEditor/MarkdownEditor.csproj`.
 
 ## Arquitetura
 
 - **`Program.cs`**: `Main(string[] args)` pega o primeiro argumento que seja um arquivo existente e passa para `new frmEditor(arquivoInicial)`. É assim que funciona o duplo clique no Windows (o Windows passa o caminho como `%1`). O programa **não** grava associação de arquivos no Registro — isso foi decidido explicitamente. Quem registra é o **instalador** (ver "Geração do Instalador"); sem o instalador, a associação é feita manualmente pelo usuário via "Abrir com".
-- **`frmEditor`**: `ToolStrip tsrNavegacao` (botões `tsbArvore`, `tsbVoltar`/`tsbAvancar`) no topo e `SplitContainer spcPrincipal` com:
+- **`frmEditor`**: `ToolStrip tsrNavegacao` (botões `tsbArvore`, `tsbVoltar`/`tsbAvancar`, `tsbVisualizar`/`tsbEditar` e `tsbSalvar`) no topo e `SplitContainer spcPrincipal` com:
   - `Panel1`: `TreeView trvPastas` com `ImageList imlIcones`.
-  - `Panel2`: `WebView2 wvwPreview` (pacote NuGet `Microsoft.Web.WebView2`).
+  - `Panel2`: `WebView2 wvwPreview` (pacote NuGet `Microsoft.Web.WebView2`) e `Scintilla sciEditor` (pacote NuGet `Scintilla5.NET`, namespace `ScintillaNET`, nativos em `runtimes\`); só um dos dois fica visível.
 - **Árvore** (`frmEditor.cs`):
   - Raízes: Área de Trabalho, Documentos, Downloads e `DriveInfo.GetDrives()` (somente `IsReady`).
   - `Tag` de cada nó é um `record NoArvore(string Caminho, bool EhArquivo)`.
@@ -28,13 +28,21 @@ Solução: `MarkdownEditor.slnx` com um único projeto, `MarkdownEditor/Markdown
   - Enquanto a página não terminou de carregar (`NavigationCompleted`), o arquivo fica em `_arquivoPendente` e é exibido em seguida.
   - Menu de contexto: `CoreWebView2_ContextMenuRequested` acrescenta ao menu nativo (separador + as mesmas 3 opções da árvore) referentes ao `trvPastas.SelectedNode`; sem item selecionado, as opções ficam desabilitadas.
   - Arrastar/soltar, colar (Ctrl+V), tema, copiar e imprimir são recursos nativos do HTML e funcionam sem código C#.
-  - Leitura de arquivos via `LerArquivoAsync` (`FileShare.ReadWrite | FileShare.Delete`), para não impedir outro processo de gravar/renomear/excluir durante a leitura.
+  - Leitura de arquivos via `LerArquivoAsync` (`FileShare.ReadWrite | FileShare.Delete`), para não impedir outro processo de gravar/renomear/excluir durante a leitura. Devolve também a codificação (padrão UTF-8 sem BOM; BOM detectado é preservado ao salvar).
+- **Edição** (`sciEditor`):
+  - "Abas" = botões marcáveis `tsbVisualizar` (padrão) / `tsbEditar` na `tsrNavegacao`; `AlternarModoAsync` alterna a visibilidade de `wvwPreview`/`sciEditor` e mostra `tsbSalvar` só no modo Editar.
+  - Todo conteúdo exibido também é carregado no editor por `CarregarNoEditor(texto, caminho?, codificação?)` (arquivo, texto colado, histórico, arquivo solto, "Novo"). Guarda `_textoOriginal` (último conteúdo conhecido em disco ou o texto colado) e `_codificacaoAtual`; zera o undo e marca o save point.
+  - Lexer por extensão (`DefinirLexer`): `markdown` (padrão e texto colado), `json`, `xml`, `null` (.txt). `AplicarEstilosEditor` aplica as cores VS Code Light+/Dark+ do lexer atual (os números de estilo mudam por lexer) e é chamado também por `AplicarTema`.
+  - Alterações não salvas: `_previaDesatualizada` (setado no `TextChanged`) faz a prévia re-renderizar o texto do editor ao voltar para Visualizar (`AtualizarPreviaAsync`, preservando rolagem via `RenderizarPreservandoRolagemAsync`). O título ganha `*` quando `sciEditor.Modified`.
+  - `tsbSalvar` (e Ctrl+S no modo Editar) habilita com `sciEditor.Modified` ou quando não há arquivo e existe texto (texto colado). `SalvarAsync` grava na mesma codificação; sem arquivo vai para `SalvarComoAsync` (`SaveFileDialog`), que define o arquivo atual, troca `_entradaAtual`, recarrega a pasta na árvore e seleciona o arquivo (`MostrarNaArvore`).
+  - `tsbDesfazer` (habilitado com `sciEditor.Modified`): `DesfazerAlteracoes` volta o texto para `_textoOriginal` e marca o save point, sem limpar o undo (Ctrl+Z recupera as edições).
+  - `ConfirmarDescarteAsync` (Sim/Não/Cancelar; "Não" volta o editor para `_textoOriginal`) é chamado em `trvPastas_BeforeSelect` (cancela e reseleciona depois), `NavegarHistoricoAsync`, `AbrirLink`, `FormClosing` e nos fluxos que o HTML já exibiu sozinho (colar, soltar, "Novo") — nestes, se cancelado, `RestaurarPreviaAsync` volta a prévia ao texto do editor.
 - **Atualização automática do arquivo exibido**:
   - Toda troca do arquivo atual passa por `DefinirArquivoAtual(caminho?)` (atualiza `_arquivoAtual`, título e o monitor). Texto colado ou "Novo" → `null` (sem monitor).
   - `MonitorarArquivo` cria um `FileSystemWatcher` só para o arquivo exibido (pasta + `Filter` = nome, `SynchronizingObject = this`): notificações do Windows, sem polling e sem abrir o arquivo.
   - Os eventos (`Changed`/`Created`/`Deleted`/`Renamed`/`Error`) apenas reiniciam o `_temporizadorRecarga` (debounce de `IntervaloRecargaMs`). No `Tick` o estado real é conferido com `File.Exists` — isso cobre o salvamento atômico dos editores (exclui + renomeia temporário).
-  - Existe → `RecarregarArquivoAsync`: re-renderiza preservando `stage.scrollTop`, sem histórico e sem mexer na árvore; `IOException` (arquivo ainda em gravação) reagenda silenciosamente até `MaximoTentativasRecarga`.
-  - Não existe → `TratarArquivoExcluidoAsync`: desliga o monitor, remove o(s) nó(s) da árvore (`LocalizarNosCarregados`, sem expandir), avisa com uma mensagem só com "OK" e fecha a visualização (`newBtn.click()` no HTML e limpa o arquivo atual).
+  - Existe → `RecarregarArquivoAsync`: se o conteúdo for igual a `_textoOriginal` não faz nada (cobre o próprio salvamento); senão recarrega editor (mantendo cursor/rolagem) e prévia preservando `stage.scrollTop`, sem histórico e sem mexer na árvore. Com alterações pendentes, pergunta antes se descarta. `IOException` (arquivo ainda em gravação) reagenda silenciosamente até `MaximoTentativasRecarga`.
+  - Não existe → `TratarArquivoExcluidoAsync`: desliga o monitor, remove o(s) nó(s) da árvore (`LocalizarNosCarregados`, sem expandir; localiza arquivos ou pastas), avisa com uma mensagem só com "OK" e fecha a visualização (`newBtn.click()` no HTML e limpa o arquivo atual). Com alterações pendentes no editor, mantém o texto como não salvo (sem arquivo; Salvar abre o "Salvar como").
   - O clique no botão "Novo" do HTML é avisado pelo `ScriptMonitorarEventos` com a mensagem `novo`, que desliga o monitor.
   - `ScriptMonitorarEventos` é injetado via `AddScriptToExecuteOnDocumentCreatedAsync` (sem alterar o HTML) e avisa o C# por `postMessage`, tratado em `CoreWebView2_WebMessageReceived`: `arquivoSolto`, `textoColado:` + texto, `abrirLink:` + destino, `navegar:voltar` / `navegar:avancar`, `tema:light` / `tema:dark`.
 - **Tema do form**:
@@ -66,7 +74,7 @@ Gerado com **Inno Setup** (`iscc` no PATH). Arquivos: `MarkdownEditor\Instalador
 ## Convenções
 
 - Textos de interface, nomes de variáveis, métodos e controles em português (pt-BR).
-- Prefixos de controles: `frm` (form), `trv` (TreeView), `spc` (SplitContainer), `iml` (ImageList), `wvw` (WebView2), `tsr` (ToolStrip), `tsb` (ToolStripButton), `cms` (ContextMenuStrip), `tsm` (ToolStripMenuItem).
+- Prefixos de controles: `frm` (form), `trv` (TreeView), `spc` (SplitContainer), `iml` (ImageList), `wvw` (WebView2), `tsr` (ToolStrip), `tsb` (ToolStripButton), `cms` (ContextMenuStrip), `tsm` (ToolStripMenuItem), `tss` (ToolStripSeparator), `sci` (Scintilla).
 - Não adicionar comentários XML `<summary>` em métodos novos.
 - Não alterar o HTML em `wwwroot` para integrar com o C#; preferir chamar as funções já existentes. Se o HTML precisar mudar, avaliar se a mudança deve ir também para o projeto `preview-html` original.
 - Não há testes automatizados; a verificação é feita executando o programa.

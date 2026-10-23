@@ -39,6 +39,13 @@ namespace MarkdownEditor
             tssArvore = new ToolStripSeparator();
             tsbVoltar = new ToolStripButton();
             tsbAvancar = new ToolStripButton();
+            tssModo = new ToolStripSeparator();
+            tsbVisualizar = new ToolStripButton();
+            tsbEditar = new ToolStripButton();
+            tssSalvar = new ToolStripSeparator();
+            tsbSalvar = new ToolStripButton();
+            tsbDesfazer = new ToolStripButton();
+            sciEditor = new ScintillaNET.Scintilla();
             cmsArvore = new ContextMenuStrip(components);
             tsmAbrirLocal = new ToolStripMenuItem();
             tsmCopiarCaminho = new ToolStripMenuItem();
@@ -74,6 +81,7 @@ namespace MarkdownEditor
             // spcPrincipal.Panel2
             // 
             spcPrincipal.Panel2.Controls.Add(wvwPreview);
+            spcPrincipal.Panel2.Controls.Add(sciEditor);
             spcPrincipal.Size = new Size(1080, 597);
             spcPrincipal.SplitterDistance = 280;
             spcPrincipal.TabIndex = 0;
@@ -91,6 +99,7 @@ namespace MarkdownEditor
             trvPastas.Size = new Size(280, 597);
             trvPastas.TabIndex = 0;
             trvPastas.BeforeExpand += trvPastas_BeforeExpand;
+            trvPastas.BeforeSelect += trvPastas_BeforeSelect;
             trvPastas.AfterSelect += trvPastas_AfterSelect;
             // 
             // imlIcones
@@ -111,10 +120,23 @@ namespace MarkdownEditor
             wvwPreview.TabIndex = 0;
             wvwPreview.ZoomFactor = 1D;
             //
+            // sciEditor
+            //
+            sciEditor.BorderStyle = ScintillaNET.BorderStyle.None;
+            sciEditor.Dock = DockStyle.Fill;
+            sciEditor.Location = new Point(0, 0);
+            sciEditor.Name = "sciEditor";
+            sciEditor.Size = new Size(796, 597);
+            sciEditor.TabIndex = 1;
+            sciEditor.Visible = false;
+            sciEditor.SavePointLeft += sciEditor_SavePointAlterado;
+            sciEditor.SavePointReached += sciEditor_SavePointAlterado;
+            sciEditor.TextChanged += sciEditor_TextChanged;
+            //
             // tsrNavegacao
             //
             tsrNavegacao.GripStyle = ToolStripGripStyle.Hidden;
-            tsrNavegacao.Items.AddRange(new ToolStripItem[] { tsbArvore, tssArvore, tsbVoltar, tsbAvancar });
+            tsrNavegacao.Items.AddRange(new ToolStripItem[] { tsbArvore, tssArvore, tsbVoltar, tsbAvancar, tssModo, tsbVisualizar, tsbEditar, tssSalvar, tsbSalvar, tsbDesfazer });
             tsrNavegacao.Location = new Point(0, 0);
             tsrNavegacao.Name = "tsrNavegacao";
             tsrNavegacao.Size = new Size(1080, 25);
@@ -150,6 +172,57 @@ namespace MarkdownEditor
             tsbAvancar.Size = new Size(68, 22);
             tsbAvancar.Text = "Avançar ▶";
             tsbAvancar.Click += tsbAvancar_Click;
+            //
+            // tssModo
+            //
+            tssModo.Name = "tssModo";
+            tssModo.Size = new Size(6, 25);
+            //
+            // tsbVisualizar
+            //
+            tsbVisualizar.Checked = true;
+            tsbVisualizar.CheckState = CheckState.Checked;
+            tsbVisualizar.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            tsbVisualizar.Name = "tsbVisualizar";
+            tsbVisualizar.Size = new Size(64, 22);
+            tsbVisualizar.Text = "Visualizar";
+            tsbVisualizar.Click += tsbVisualizar_Click;
+            //
+            // tsbEditar
+            //
+            tsbEditar.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            tsbEditar.Name = "tsbEditar";
+            tsbEditar.Size = new Size(41, 22);
+            tsbEditar.Text = "Editar";
+            tsbEditar.Click += tsbEditar_Click;
+            //
+            // tssSalvar
+            //
+            tssSalvar.Name = "tssSalvar";
+            tssSalvar.Size = new Size(6, 25);
+            tssSalvar.Visible = false;
+            //
+            // tsbSalvar
+            //
+            tsbSalvar.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            tsbSalvar.Enabled = false;
+            tsbSalvar.Name = "tsbSalvar";
+            tsbSalvar.Size = new Size(60, 22);
+            tsbSalvar.Text = "💾 Salvar";
+            tsbSalvar.ToolTipText = "Salvar (Ctrl+S)";
+            tsbSalvar.Visible = false;
+            tsbSalvar.Click += tsbSalvar_Click;
+            //
+            // tsbDesfazer
+            //
+            tsbDesfazer.DisplayStyle = ToolStripItemDisplayStyle.Text;
+            tsbDesfazer.Enabled = false;
+            tsbDesfazer.Name = "tsbDesfazer";
+            tsbDesfazer.Size = new Size(70, 22);
+            tsbDesfazer.Text = "↶ Desfazer";
+            tsbDesfazer.ToolTipText = "Desfazer as alterações não salvas";
+            tsbDesfazer.Visible = false;
+            tsbDesfazer.Click += tsbDesfazer_Click;
             //
             // cmsArvore
             //
@@ -203,6 +276,7 @@ namespace MarkdownEditor
             Name = "frmEditor";
             StartPosition = FormStartPosition.CenterScreen;
             Text = "Visualizador e editor de Markdown";
+            FormClosing += frmEditor_FormClosing;
             Load += frmEditor_Load;
             spcPrincipal.Panel1.ResumeLayout(false);
             spcPrincipal.Panel2.ResumeLayout(false);
@@ -227,6 +301,13 @@ namespace MarkdownEditor
         private ToolStripSeparator tssArvore;
         private ToolStripButton tsbVoltar;
         private ToolStripButton tsbAvancar;
+        private ToolStripSeparator tssModo;
+        private ToolStripButton tsbVisualizar;
+        private ToolStripButton tsbEditar;
+        private ToolStripSeparator tssSalvar;
+        private ToolStripButton tsbSalvar;
+        private ToolStripButton tsbDesfazer;
+        private ScintillaNET.Scintilla sciEditor;
         private ContextMenuStrip cmsArvore;
         private ToolStripMenuItem tsmAbrirLocal;
         private ToolStripMenuItem tsmCopiarCaminho;

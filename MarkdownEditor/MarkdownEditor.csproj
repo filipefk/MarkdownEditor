@@ -14,6 +14,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
+    <PackageReference Include="Scintilla5.NET" Version="7.1.1" />
   </ItemGroup>
 
   <ItemGroup>
