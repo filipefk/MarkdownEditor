@@ -997,6 +997,7 @@ namespace MarkdownEditor
 
         private void ConfigurarEditor()
         {
+            sciEditor.Technology = ScintillaNET.Technology.DirectWrite;
             sciEditor.WrapMode = ScintillaNET.WrapMode.Word;
             sciEditor.ScrollWidthTracking = true;
             sciEditor.ScrollWidth = 1;
