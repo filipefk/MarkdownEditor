@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Editor</title>
+    <link rel="stylesheet" data-name="vs/editor/editor.main" href="monaco/vs/editor/editor.main.css">
+    <style>
+        html, body, #editor { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
+        body { background: #FFFFFF; }
+        body.escuro { background: #1E1E1E; }
+    </style>
+</head>
+<body>
+    <div id="editor"></div>
+    <script src="monaco/vs/loader.js"></script>
+    <script>
+        // Página própria do editor (Monaco), controlada pelo C# (JanelaPrincipal.Editor.cs).
+        // O C# chama as funções globais abaixo por ExecuteScriptAsync; a página avisa o C# por postMessage:
+        //   'pronto', 'alterado:' + estado (só em edições do usuário), 'salvar', 'navegar:voltar', 'navegar:avancar'.
+        // As funções chamadas pelo C# devolvem o estado { modificado, vazio } e não geram 'alterado'.
+        let editor = null;
+        let pontoSalvo = 0;
+        let silencioso = false;
+        let temaEscuro = false;
+
+        const avisar = (mensagem) => window.chrome.webview.postMessage(mensagem);
+
+        const estado = () => {
+            const modelo = editor.getModel();
+            return { modificado: modelo.getAlternativeVersionId() !== pontoSalvo, vazio: modelo.getValueLength() === 0 };
+        };
+
+        const emSilencio = (acao) => {
+            silencioso = true;
+            try { acao(); } finally { silencioso = false; }
+        };
+
+        const preservandoPosicao = (acao) => {
+            const posicao = editor.getPosition();
+            const rolagemTopo = editor.getScrollTop();
+            const rolagemEsquerda = editor.getScrollLeft();
+            acao();
+            if (posicao) editor.setPosition(editor.getModel().validatePosition(posicao));
+            editor.setScrollTop(rolagemTopo);
+            editor.setScrollLeft(rolagemEsquerda);
+        };
+
+        // Troca o conteúdo por um modelo novo: zera o desfazer e marca o ponto salvo.
+        window.carregar = (texto, linguagem) => {
+            emSilencio(() => {
+                const anterior = editor.getModel();
+                const modelo = monaco.editor.createModel(texto, linguagem);
+                editor.setModel(modelo);
+                if (anterior) anterior.dispose();
+                pontoSalvo = modelo.getAlternativeVersionId();
+            });
+            return estado();
+        };
+
+        // Arquivo alterado fora do programa: troca o texto mantendo cursor e rolagem.
+        window.recarregar = (texto) => {
+            const linguagem = editor.getModel().getLanguageId();
+            preservandoPosicao(() => window.carregar(texto, linguagem));
+            return estado();
+        };
+
+        // Recebe a versão devolvida por obterConteudo: o que foi digitado depois disso continua como alteração.
+        window.marcarSalvo = (versao) => {
+            pontoSalvo = versao;
+            return estado();
+        };
+
+        window.definirLinguagem = (linguagem) => {
+            monaco.editor.setModelLanguage(editor.getModel(), linguagem);
+        };
+
+        // Volta ao texto original como uma única edição: o Ctrl+Z ainda recupera as alterações descartadas.
+        window.desfazerAlteracoes = (texto) => {
+            emSilencio(() => preservandoPosicao(() => {
+                const modelo = editor.getModel();
+                editor.pushUndoStop();
+                editor.executeEdits('desfazerAlteracoes', [{ range: modelo.getFullModelRange(), text: texto }]);
+                editor.pushUndoStop();
+                pontoSalvo = modelo.getAlternativeVersionId();
+            }));
+            editor.focus();
+            return estado();
+        };
+
+        window.obterConteudo = () => ({ texto: editor.getValue(), versao: editor.getModel().getAlternativeVersionId() });
+
+        window.definirTema = (escuro) => {
+            temaEscuro = escuro;
+            document.body.classList.toggle('escuro', escuro);
+            if (editor) monaco.editor.setTheme(escuro ? 'vs-dark' : 'vs');
+        };
+
+        window.focar = () => editor.focus();
+
+        // Botões laterais do mouse e teclas de navegação, como no visualizador.
+        const botaoNavegacao = (e) => e.button === 3 ? 'navegar:voltar' : e.button === 4 ? 'navegar:avancar' : null;
+        window.addEventListener('mousedown', (e) => { if (botaoNavegacao(e)) e.preventDefault(); }, true);
+        window.addEventListener('mouseup', (e) => {
+            const mensagem = botaoNavegacao(e);
+            if (!mensagem) return;
+            e.preventDefault();
+            avisar(mensagem);
+        }, true);
+        window.addEventListener('keydown', (e) => {
+            let mensagem = null;
+            if (e.key === 'BrowserBack') mensagem = 'navegar:voltar';
+            else if (e.key === 'BrowserForward') mensagem = 'navegar:avancar';
+            if (!mensagem) return;
+            e.preventDefault();
+            avisar(mensagem);
+        }, true);
+        // Arquivos arrastados do Explorer são abertos pelo C# (evento Drop do WinUI): a página só precisa
+        // aceitar a cópia (senão o cursor fica "proibido") e impedir que o navegador ou o Monaco tratem o drop.
+        const temArquivos = (e) => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+        window.addEventListener('dragover', (e) => {
+            if (!temArquivos(e)) return;
+            e.preventDefault();
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = 'copy';
+        }, true);
+        window.addEventListener('drop', (e) => {
+            if (!temArquivos(e)) return;
+            e.preventDefault();
+            e.stopPropagation();
+        }, true);
+
+        require.config({ paths: { vs: 'monaco/vs' } });
+        require(['vs/editor/editor.main'], () => {
+            editor = monaco.editor.create(document.getElementById('editor'), {
+                value: '',
+                language: 'markdown',
+                theme: temaEscuro ? 'vs-dark' : 'vs',
+                automaticLayout: true,
+                wordWrap: 'on',
+                minimap: { enabled: false },
+                lineNumbers: 'on',
+                fontFamily: "Consolas, 'Courier New', monospace",
+                fontSize: 13,
+                tabSize: 4,
+                scrollBeyondLastLine: false,
+                links: false,
+                dropIntoEditor: { enabled: false },
+                unicodeHighlight: { ambiguousCharacters: false, invisibleCharacters: false },
+                fixedOverflowWidgets: true
+            });
+            pontoSalvo = editor.getModel().getAlternativeVersionId();
+
+            editor.onDidChangeModelContent(() => {
+                if (!silencioso) avisar('alterado:' + JSON.stringify(estado()));
+            });
+
+            editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => avisar('salvar'));
+            editor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.LeftArrow, () => avisar('navegar:voltar'));
+            editor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.RightArrow, () => avisar('navegar:avancar'));
+
+            avisar('pronto');
+        });
+    </script>
+</body>
+</html>

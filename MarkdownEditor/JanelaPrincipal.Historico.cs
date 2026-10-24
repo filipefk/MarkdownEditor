@@ -1,6 +1,9 @@
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+
 namespace MarkdownEditor
 {
-    public partial class frmEditor
+    public sealed partial class JanelaPrincipal
     {
         private static bool MesmaEntrada(EntradaHistorico? a, EntradaHistorico? b)
         {
@@ -35,23 +38,23 @@ namespace MarkdownEditor
 
         private void AtualizarBotoesNavegacao()
         {
-            tsbVoltar.Enabled = _historicoVoltar.Count > 0;
-            tsbVoltar.ToolTipText = _historicoVoltar.Last != null
+            abbVoltar.IsEnabled = _historicoVoltar.Count > 0;
+            ToolTipService.SetToolTip(abbVoltar, _historicoVoltar.Last != null
                 ? $"Voltar para {ObterNomeEntrada(_historicoVoltar.Last.Value)} (Alt+←)"
-                : "Voltar (Alt+←)";
+                : "Voltar (Alt+←)");
 
-            tsbAvancar.Enabled = _historicoAvancar.Count > 0;
-            tsbAvancar.ToolTipText = _historicoAvancar.Last != null
+            abbAvancar.IsEnabled = _historicoAvancar.Count > 0;
+            ToolTipService.SetToolTip(abbAvancar, _historicoAvancar.Last != null
                 ? $"Avançar para {ObterNomeEntrada(_historicoAvancar.Last.Value)} (Alt+→)"
-                : "Avançar (Alt+→)";
+                : "Avançar (Alt+→)");
         }
 
         private static string ObterNomeEntrada(EntradaHistorico entrada) =>
             entrada.Caminho != null ? Path.GetFileName(entrada.Caminho) : NomeTextoColado;
 
-        private void tsbVoltar_Click(object? sender, EventArgs e) => Voltar();
+        private void abbVoltar_Click(object sender, RoutedEventArgs e) => Voltar();
 
-        private void tsbAvancar_Click(object? sender, EventArgs e) => Avancar();
+        private void abbAvancar_Click(object sender, RoutedEventArgs e) => Avancar();
 
         private void Voltar() => Disparar(NavegarHistoricoAsync(_historicoVoltar, _historicoAvancar));
 
@@ -89,16 +92,8 @@ namespace MarkdownEditor
         {
             if (entrada.Caminho != null)
             {
-                _ignorarSelecao = true;
-                try
-                {
-                    if (!SelecionarNaArvore(entrada.Caminho))
-                        trvPastas.SelectedNode = null;
-                }
-                finally
-                {
-                    _ignorarSelecao = false;
-                }
+                if (!SelecionarNaArvore(entrada.Caminho))
+                    LimparSelecaoArvore();
 
                 return await ExibirArquivoAsync(entrada.Caminho, registrarHistorico: false);
             }
@@ -106,7 +101,7 @@ namespace MarkdownEditor
             LimparSelecaoArvore();
             await RenderizarAsync(entrada.Texto ?? string.Empty, NomeTextoColado);
             DefinirArquivoAtual(null);
-            CarregarNoEditor(entrada.Texto ?? string.Empty, null, null);
+            await CarregarNoEditorAsync(entrada.Texto ?? string.Empty, null, null);
             return true;
         }
     }

@@ -2,10 +2,12 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
-    <AssemblyVersion>1.0.0</AssemblyVersion>
-    <FileVersion>1.0.0</FileVersion>
-    <InformationalVersion>1.0.0</InformationalVersion>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>MarkdownEditor</RootNamespace>
+    <AssemblyVersion>2.0.0</AssemblyVersion>
+    <FileVersion>2.0.0</FileVersion>
+    <InformationalVersion>2.0.0</InformationalVersion>
     <Product>Markdown Editor</Product>
     <AssemblyTitle>Markdown Editor</AssemblyTitle>
     <Description>Visualizador e editor de arquivos Markdown, JSON, XML e texto</Description>
@@ -14,36 +16,45 @@
     <Copyright>Copyright © Filipe Kanitz</Copyright>
     <NeutralLanguage>pt-BR</NeutralLanguage>
     <Nullable>enable</Nullable>
-    <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationIcon>..\Markdown.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
     <AnalysisLevel>latest-recommended</AnalysisLevel>
     <!-- Necessário para o código gerado pelo LibraryImport (NativeMethods.cs) -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+    <!-- WinUI 3 (Windows App SDK), sem pacote MSIX: distribuído pelo instalador Inno Setup.
+         O Windows App SDK vai junto do programa (self-contained); o .NET continua sendo exigido na máquina. -->
+    <UseWinUI>true</UseWinUI>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <!-- Gera e publica o MarkdownEditor.pri (com o XAML compilado); sem ele o exe publicado fecha ao abrir. -->
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+  </PropertyGroup>
+
+  <!-- O Windows App SDK self-contained exige um RuntimeIdentifier: x64 por padrão (build, F5 e Release.cmd). -->
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' == ''">
+    <RuntimeIdentifier Condition="'$(Platform)' == 'ARM64'">win-arm64</RuntimeIdentifier>
+    <RuntimeIdentifier Condition="'$(Platform)' != 'ARM64'">win-x64</RuntimeIdentifier>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
-    <PackageReference Include="Scintilla5.NET" Version="7.1.1" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.5.1" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2705" />
+    <PackageReference Include="CommunityToolkit.WinUI.Controls.Segmented" Version="8.2.251219" />
+    <PackageReference Include="CommunityToolkit.WinUI.Controls.Sizers" Version="8.2.251219" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="wwwroot\**" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\Markdown.ico" Link="Assets\Markdown.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
-  <!-- O pacote WebView2 sempre referencia o Microsoft.Web.WebView2.Wpf.dll, que não é usado num app
-       WinForms e causa conflito de versões do WindowsBase (MSB3277). -->
-  <Target Name="RemoverReferenciaWebView2Wpf" BeforeTargets="ResolveAssemblyReferences">
-    <ItemGroup>
-      <Reference Remove="@(Reference)" Condition="'%(Filename)' == 'Microsoft.Web.WebView2.Wpf'" />
-    </ItemGroup>
-  </Target>
-
-  <!-- Arquivos parciais do frmEditor: agrupados sob o frmEditor.cs e abertos como código (não no designer) -->
+  <!-- Arquivos parciais da JanelaPrincipal: agrupados sob o code-behind do XAML -->
   <ItemGroup>
-    <Compile Update="frmEditor.Arvore.cs;frmEditor.Editor.cs;frmEditor.Historico.cs;frmEditor.Monitor.cs;frmEditor.Preview.cs;frmEditor.Tema.cs">
-      <DependentUpon>frmEditor.cs</DependentUpon>
-      <SubType>Code</SubType>
+    <Compile Update="JanelaPrincipal.Arvore.cs;JanelaPrincipal.Dialogos.cs;JanelaPrincipal.Editor.cs;JanelaPrincipal.Historico.cs;JanelaPrincipal.Monitor.cs;JanelaPrincipal.Preview.cs;JanelaPrincipal.Tema.cs">
+      <DependentUpon>JanelaPrincipal.xaml</DependentUpon>
     </Compile>
   </ItemGroup>
 

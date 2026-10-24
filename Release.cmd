@@ -1,10 +1,11 @@
 @echo off
 setlocal
 
-REM 1. Build completo da solução em modo Release
-dotnet build MarkdownEditor.slnx -c Release
+REM 1. Publicar em Release (x64): .NET framework-dependent e Windows App SDK self-contained
+if exist MarkdownEditor\bin\Publicar rmdir /s /q MarkdownEditor\bin\Publicar
+dotnet publish MarkdownEditor\MarkdownEditor.csproj -c Release -r win-x64 --self-contained false -o MarkdownEditor\bin\Publicar
 if errorlevel 1 (
-    echo Erro ao compilar a solução.
+    echo Erro ao publicar o projeto.
 	pause
     exit /b 1
 )

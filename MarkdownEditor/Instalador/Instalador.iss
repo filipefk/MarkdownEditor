@@ -6,22 +6,29 @@ Name: "brazilian"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
 AppId=Markdown Editor
 ArchitecturesInstallIn64BitMode=x64compatible
 AppName=Markdown Editor
-AppVersion=1.0.0
+AppVersion=2.0.0
 AppPublisher=Filipe Kanitz
 DefaultDirName={commonpf}\MarkdownEditor
 DefaultGroupName=MarkdownEditor
 OutputDir=.
 SetupIconFile="..\..\Markdown.ico"
 UninstallDisplayIcon={app}\MarkdownEditor.exe
-OutputBaseFilename=MarkdownEditor-1.0.0
+OutputBaseFilename=MarkdownEditor-2.0.0
 Compression=lzma
 SolidCompression=yes
 DisableProgramGroupPage=yes
 ChangesAssociations=yes
 
+[InstallDelete]
+; Sobras da versão 1.x (WinForms) que a versão WinUI não usa mais
+Type: filesandordirs; Name: "{app}\runtimes"
+Type: files; Name: "{app}\Microsoft.Web.WebView2.WinForms.*"
+Type: files; Name: "{app}\Microsoft.Web.WebView2.Wpf.*"
+Type: files; Name: "{app}\Microsoft.Web.WebView2.Core.xml"
+
 [Files]
-; Copia todos os arquivos da pasta Release (inclui wwwroot e runtimes do WebView2) para a pasta de instalação
-Source: "..\bin\Release\net10.0-windows\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Copia todo o resultado do dotnet publish (inclui wwwroot com o Monaco, Assets e o Windows App SDK self-contained)
+Source: "..\bin\Publicar\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\Markdown Editor"; Filename: "{app}\MarkdownEditor.exe"
@@ -67,11 +74,12 @@ const
   UrlWebView2 = 'https://go.microsoft.com/fwlink/p/?LinkId=2124703';
   ChaveWebView2 = 'Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}';
 
-function DotNetDesktopInstalado: Boolean;
+// O WinUI 3 usa só o runtime base do .NET (não o Desktop Runtime do WinForms/WPF).
+function DotNetInstalado: Boolean;
 var
   Busca: TFindRec;
 begin
-  Result := FindFirst(ExpandConstant('{commonpf64}\dotnet\shared\Microsoft.WindowsDesktop.App\10.*'), Busca);
+  Result := FindFirst(ExpandConstant('{commonpf64}\dotnet\shared\Microsoft.NETCore.App\10.*'), Busca);
   if Result then
     FindClose(Busca);
 end;
@@ -103,9 +111,9 @@ function InitializeSetup: Boolean;
 begin
   Result := True;
 
-  if not DotNetDesktopInstalado then
-    OferecerDownload('O Markdown Editor precisa do .NET 10 Desktop Runtime (x64), que não foi encontrado neste computador.', UrlDotNet);
+  if not DotNetInstalado then
+    OferecerDownload('O Markdown Editor precisa do .NET 10 Runtime (x64), que não foi encontrado neste computador.', UrlDotNet);
 
   if not WebView2Instalado then
-    OferecerDownload('A visualização usa o Microsoft Edge WebView2 Runtime, que não foi encontrado neste computador.', UrlWebView2);
+    OferecerDownload('A visualização e a edição usam o Microsoft Edge WebView2 Runtime, que não foi encontrado neste computador.', UrlWebView2);
 end;

@@ -1,0 +1,1 @@
+monaco-editor 0.52.2 (npm), pasta min/vs reduzida: só markdown, xml e json.

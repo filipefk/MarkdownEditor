@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="MarkdownEditor.JanelaPrincipal"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:MarkdownEditor"
+    xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
+    Title="Visualizador e editor de Markdown">
+
+    <Window.SystemBackdrop>
+        <MicaBackdrop />
+    </Window.SystemBackdrop>
+
+    <Grid x:Name="grdRaiz">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <TitleBar
+            x:Name="tlbTitulo"
+            Grid.Row="0"
+            Title="Visualizador e editor de Markdown"
+            IsBackButtonVisible="False"
+            IsPaneToggleButtonVisible="True"
+            PaneToggleRequested="tlbTitulo_PaneToggleRequested">
+            <TitleBar.IconSource>
+                <ImageIconSource ImageSource="ms-appx:///Assets/Markdown.ico" />
+            </TitleBar.IconSource>
+        </TitleBar>
+
+        <CommandBar
+            x:Name="cbrComandos"
+            Grid.Row="1"
+            Margin="4,0,4,4"
+            HorizontalAlignment="Left"
+            Background="Transparent"
+            DefaultLabelPosition="Right"
+            IsDynamicOverflowEnabled="False"
+            OverflowButtonVisibility="Collapsed">
+            <AppBarButton
+                x:Name="abbVoltar"
+                Icon="Back"
+                Label="Voltar"
+                IsEnabled="False"
+                KeyboardAcceleratorPlacementMode="Hidden"
+                Click="abbVoltar_Click">
+                <AppBarButton.KeyboardAccelerators>
+                    <KeyboardAccelerator Key="Left" Modifiers="Menu" />
+                </AppBarButton.KeyboardAccelerators>
+            </AppBarButton>
+            <AppBarButton
+                x:Name="abbAvancar"
+                Icon="Forward"
+                Label="Avançar"
+                IsEnabled="False"
+                KeyboardAcceleratorPlacementMode="Hidden"
+                Click="abbAvancar_Click">
+                <AppBarButton.KeyboardAccelerators>
+                    <KeyboardAccelerator Key="Right" Modifiers="Menu" />
+                </AppBarButton.KeyboardAccelerators>
+            </AppBarButton>
+            <AppBarSeparator />
+            <AppBarElementContainer VerticalContentAlignment="Center">
+                <toolkit:Segmented x:Name="sgmModo" Margin="4,0" SelectedIndex="0" SelectionChanged="sgmModo_SelectionChanged">
+                    <toolkit:SegmentedItem Content="Visualizar" ToolTipService.ToolTip="Visualizar o conteúdo formatado">
+                        <toolkit:SegmentedItem.Icon>
+                            <FontIcon Glyph="&#xE890;" />
+                        </toolkit:SegmentedItem.Icon>
+                    </toolkit:SegmentedItem>
+                    <toolkit:SegmentedItem Content="Editar" ToolTipService.ToolTip="Editar o texto">
+                        <toolkit:SegmentedItem.Icon>
+                            <FontIcon Glyph="&#xE70F;" />
+                        </toolkit:SegmentedItem.Icon>
+                    </toolkit:SegmentedItem>
+                </toolkit:Segmented>
+            </AppBarElementContainer>
+            <AppBarSeparator x:Name="absSalvar" Visibility="Collapsed" />
+            <AppBarButton
+                x:Name="abbSalvar"
+                Icon="Save"
+                Label="Salvar"
+                IsEnabled="False"
+                Visibility="Collapsed"
+                KeyboardAcceleratorPlacementMode="Hidden"
+                ToolTipService.ToolTip="Salvar (Ctrl+S)"
+                Click="abbSalvar_Click">
+                <AppBarButton.KeyboardAccelerators>
+                    <KeyboardAccelerator Key="S" Modifiers="Control" />
+                </AppBarButton.KeyboardAccelerators>
+            </AppBarButton>
+            <AppBarButton
+                x:Name="abbDesfazer"
+                Icon="Undo"
+                Label="Desfazer"
+                IsEnabled="False"
+                Visibility="Collapsed"
+                ToolTipService.ToolTip="Desfazer as alterações não salvas"
+                Click="abbDesfazer_Click" />
+        </CommandBar>
+
+        <Grid x:Name="grdCorpo" Grid.Row="2" Padding="0,0,8,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="colArvore" Width="280" MinWidth="50" />
+                <ColumnDefinition x:Name="colDivisoria" Width="Auto" />
+                <ColumnDefinition Width="*" MinWidth="200" />
+            </Grid.ColumnDefinitions>
+
+            <TreeView
+                x:Name="trvPastas"
+                Grid.Column="0"
+                SelectionMode="Single"
+                CanDragItems="False"
+                CanReorderItems="False"
+                AllowDrop="False"
+                Expanding="trvPastas_Expanding"
+                SelectionChanged="trvPastas_SelectionChanged"
+                ContextRequested="trvPastas_ContextRequested">
+                <TreeView.ItemTemplate>
+                    <DataTemplate x:DataType="TreeViewNode">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Image Width="16" Height="16" Source="{x:Bind ((local:ItemArvore)Content).Icone, Mode=OneWay}" />
+                            <TextBlock Text="{x:Bind ((local:ItemArvore)Content).Nome}" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </DataTemplate>
+                </TreeView.ItemTemplate>
+            </TreeView>
+
+            <toolkit:GridSplitter
+                x:Name="gspDivisoria"
+                Grid.Column="1"
+                Width="8"
+                MinWidth="8"
+                Background="Transparent"
+                ResizeBehavior="PreviousAndNext"
+                ResizeDirection="Columns" />
+
+            <Grid
+                x:Name="grdConteudo"
+                Grid.Column="2"
+                Background="{ThemeResource LayerFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="{ThemeResource OverlayCornerRadius}">
+                <WebView2 x:Name="wvwPreview" />
+                <WebView2 x:Name="wvwEditor" Visibility="Collapsed" />
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>

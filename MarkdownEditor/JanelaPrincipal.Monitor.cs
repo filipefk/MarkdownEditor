@@ -1,8 +1,9 @@
+using Microsoft.UI.Dispatching;
 using System.Text;
 
 namespace MarkdownEditor
 {
-    public partial class frmEditor
+    public sealed partial class JanelaPrincipal
     {
         // Monitora apenas o arquivo exibido. O FileSystemWatcher usa notificações do Windows
         // (sem polling) e não abre o arquivo, portanto não o bloqueia para outros processos.
@@ -27,8 +28,7 @@ namespace MarkdownEditor
             {
                 monitor = new FileSystemWatcher(pasta, Path.GetFileName(caminho!))
                 {
-                    NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.FileName,
-                    SynchronizingObject = this
+                    NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.FileName
                 };
                 monitor.Changed += MonitorArquivo_Evento;
                 monitor.Created += MonitorArquivo_Evento;
@@ -44,12 +44,16 @@ namespace MarkdownEditor
             }
         }
 
+        // Os eventos chegam numa thread do pool; o tratamento volta para a thread da interface.
         // Editores costumam gerar vários eventos por gravação (ou excluir e renomear um temporário),
         // por isso o tratamento espera os eventos cessarem e só então confere o estado do arquivo.
         private void MonitorArquivo_Evento(object? sender, EventArgs e)
         {
-            if (sender == _monitorArquivo)
-                AgendarVerificacao();
+            _filaInterface.TryEnqueue(() =>
+            {
+                if (sender == _monitorArquivo)
+                    AgendarVerificacao();
+            });
         }
 
         private void AgendarVerificacao()
@@ -58,7 +62,7 @@ namespace MarkdownEditor
             _temporizadorRecarga.Start();
         }
 
-        private async void temporizadorRecarga_Tick(object? sender, EventArgs e)
+        private async void temporizadorRecarga_Tick(DispatcherQueueTimer sender, object args)
         {
             _temporizadorRecarga.Stop();
             if (_arquivoAtual == null || _monitorArquivo == null || !_previewPronto)
@@ -108,17 +112,16 @@ namespace MarkdownEditor
             if (string.Equals(texto, _textoOriginal, StringComparison.Ordinal))
                 return;
 
-            if (sciEditor.Modified)
+            if (_editorModificado)
             {
-                var resposta = MessageBox.Show(this,
+                var recarregar = await PerguntarSimNaoAsync(
                     $"O arquivo \"{Path.GetFileName(caminho)}\" foi alterado fora do editor.\n\n" +
-                    "Deseja recarregá-lo e descartar as suas alterações?",
-                    Text, MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                    "Deseja recarregá-lo e descartar as suas alterações?");
 
                 if (!string.Equals(caminho, _arquivoAtual, StringComparison.OrdinalIgnoreCase))
                     return;
 
-                if (resposta != DialogResult.Yes)
+                if (!recarregar)
                 {
                     _textoOriginal = texto;
                     _codificacaoAtual = codificacao;
@@ -126,7 +129,7 @@ namespace MarkdownEditor
                 }
             }
 
-            RecarregarNoEditor(texto, codificacao);
+            await RecarregarNoEditorAsync(texto, codificacao);
             await RenderizarPreservandoRolagemAsync(texto, Path.GetFileName(caminho));
         }
 
@@ -136,17 +139,16 @@ namespace MarkdownEditor
             RemoverDaArvore(caminho);
 
             var arquivoExibido = string.Equals(caminho, _arquivoAtual, StringComparison.OrdinalIgnoreCase);
-            var manterAlteracoes = arquivoExibido && sciEditor.Modified;
+            var manterAlteracoes = arquivoExibido && _editorModificado;
 
-            MessageBox.Show(this,
+            await AvisarAsync(
                 $"O arquivo \"{Path.GetFileName(caminho)}\" foi excluído ou movido:\n{caminho}" +
-                (manterAlteracoes ? "\n\nAs alterações continuam no editor; use Salvar para gravá-las em um novo arquivo." : string.Empty),
-                Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                (manterAlteracoes ? "\n\nAs alterações continuam no editor; use Salvar para gravá-las em um novo arquivo." : string.Empty));
 
             if (!arquivoExibido || !string.Equals(caminho, _arquivoAtual, StringComparison.OrdinalIgnoreCase))
                 return;
 
-            if (manterAlteracoes && sciEditor.Modified)
+            if (manterAlteracoes && _editorModificado)
             {
                 DefinirArquivoAtual(null);
                 _entradaAtual = null;
@@ -154,7 +156,7 @@ namespace MarkdownEditor
                 return;
             }
 
-            CarregarNoEditor(string.Empty, null, null);
+            await CarregarNoEditorAsync(string.Empty, null, null);
             await wvwPreview.ExecuteScriptAsync("newBtn.click();");
             DefinirArquivoAtual(null);
             _entradaAtual = null;
