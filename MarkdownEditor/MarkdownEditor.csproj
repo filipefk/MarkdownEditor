@@ -53,7 +53,7 @@
 
   <!-- Arquivos parciais da JanelaPrincipal: agrupados sob o code-behind do XAML -->
   <ItemGroup>
-    <Compile Update="JanelaPrincipal.Arvore.cs;JanelaPrincipal.Dialogos.cs;JanelaPrincipal.Editor.cs;JanelaPrincipal.Historico.cs;JanelaPrincipal.Monitor.cs;JanelaPrincipal.Preview.cs;JanelaPrincipal.Tema.cs">
+    <Compile Update="JanelaPrincipal.Arvore.cs;JanelaPrincipal.Dialogos.cs;JanelaPrincipal.Editor.cs;JanelaPrincipal.Historico.cs;JanelaPrincipal.Monitor.cs;JanelaPrincipal.Preview.cs;JanelaPrincipal.Sobre.cs;JanelaPrincipal.Tema.cs">
       <DependentUpon>JanelaPrincipal.xaml</DependentUpon>
     </Compile>
   </ItemGroup>

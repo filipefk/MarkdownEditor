@@ -98,6 +98,20 @@
                 Visibility="Collapsed"
                 ToolTipService.ToolTip="Desfazer as alterações não salvas"
                 Click="abbDesfazer_Click" />
+            <AppBarSeparator />
+            <AppBarButton
+                x:Name="abbSobre"
+                Label="Sobre"
+                KeyboardAcceleratorPlacementMode="Hidden"
+                ToolTipService.ToolTip="Sobre o Markdown Editor (F1)"
+                Click="abbSobre_Click">
+                <AppBarButton.Icon>
+                    <FontIcon Glyph="&#xE946;" />
+                </AppBarButton.Icon>
+                <AppBarButton.KeyboardAccelerators>
+                    <KeyboardAccelerator Key="F1" />
+                </AppBarButton.KeyboardAccelerators>
+            </AppBarButton>
         </CommandBar>
 
         <Grid x:Name="grdCorpo" Grid.Row="2" Padding="0,0,8,8">
