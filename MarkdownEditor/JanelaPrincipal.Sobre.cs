@@ -2,7 +2,6 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.Web.WebView2.Core;
-using Microsoft.Windows.ApplicationModel.WindowsAppRuntime;
 using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -138,18 +137,11 @@ namespace MarkdownEditor
             return sufixo >= 0 ? versao[..sufixo] : versao;
         }
 
-        private static string VersaoWindowsAppSdk()
-        {
-            try
-            {
-                return ReleaseInfo.AsString;
-            }
-            catch (Exception ex)
-            {
-                Trace.TraceError(ex.ToString());
-                return "desconhecida";
-            }
-        }
+        // Constantes geradas pelo pacote NuGet (WindowsAppSdkIncludeVersionInfo): como o Windows App SDK
+        // vai junto do programa (self-contained), é a versão em uso. O ReleaseInfo (WinRT) falhava aqui.
+        private static string VersaoWindowsAppSdk() =>
+            $"{Microsoft.WindowsAppSDK.Release.Major}.{Microsoft.WindowsAppSDK.Release.Minor}.{Microsoft.WindowsAppSDK.Release.Patch}"
+            + Microsoft.WindowsAppSDK.Release.FormattedVersionTag;
 
         private static string VersaoWebView2()
         {
