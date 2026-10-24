@@ -119,7 +119,8 @@ namespace MarkdownEditor
 
         private void AtualizarTitulo()
         {
-            var titulo = _arquivoAtual != null ? $"{Path.GetFileName(_arquivoAtual)} - {TituloPadrao}" : TituloPadrao;
+            var tituloPadrao = Textos.Obter("TituloPadrao");
+            var titulo = _arquivoAtual != null ? $"{Path.GetFileName(_arquivoAtual)} - {tituloPadrao}" : tituloPadrao;
             if (_editorModificado)
                 titulo = "*" + titulo;
 
@@ -128,7 +129,7 @@ namespace MarkdownEditor
         }
 
         private string NomeConteudoAtual() =>
-            _arquivoAtual != null ? Path.GetFileName(_arquivoAtual) : NomeTextoColado;
+            _arquivoAtual != null ? Path.GetFileName(_arquivoAtual) : Textos.Obter("NomeTextoColado");
 
         private static string LinguagemEditor(string? caminho) =>
             (caminho != null ? Path.GetExtension(caminho).ToLowerInvariant() : ".md") switch
@@ -165,7 +166,7 @@ namespace MarkdownEditor
         {
             // Texto colado (sem arquivo) pode ser salvo mesmo sem edição: abre o "Salvar como".
             abbSalvar.IsEnabled = _editorModificado || (_arquivoAtual == null && !_editorVazio);
-            ToolTipService.SetToolTip(abbSalvar, _arquivoAtual == null ? "Salvar como... (Ctrl+S)" : "Salvar (Ctrl+S)");
+            ToolTipService.SetToolTip(abbSalvar, Textos.Obter(_arquivoAtual == null ? "SalvarComoDica" : "SalvarDica"));
             abbDesfazer.IsEnabled = _editorModificado;
             AtualizarTitulo();
         }
@@ -265,8 +266,8 @@ namespace MarkdownEditor
         {
             var seletor = new FileSavePicker(AppWindow.Id)
             {
-                Title = "Salvar como",
-                SuggestedFileName = "Sem título",
+                Title = Textos.Obter("SalvarComoTitulo"),
+                SuggestedFileName = Textos.Obter("SemTitulo"),
                 DefaultFileExtension = ".md",
                 ShowOverwritePrompt = true,
                 SuggestedFolder = PastaInicialSalvar()
@@ -274,7 +275,7 @@ namespace MarkdownEditor
             seletor.FileTypeChoices.Add("Markdown", [".md", ".markdown"]);
             seletor.FileTypeChoices.Add("JSON", [".json"]);
             seletor.FileTypeChoices.Add("XML", [".xml"]);
-            seletor.FileTypeChoices.Add("Texto", [".txt"]);
+            seletor.FileTypeChoices.Add(Textos.Obter("TipoTexto"), [".txt"]);
 
             var resultado = await seletor.PickSaveFileAsync();
             if (resultado == null || string.IsNullOrEmpty(resultado.Path))
@@ -332,7 +333,7 @@ namespace MarkdownEditor
             }
             catch (Exception ex) when (EhErroDeGravacao(ex))
             {
-                await AvisarAsync($"Não foi possível salvar o arquivo:\n{caminho}\n\n{ex.Message}");
+                await AvisarAsync(Textos.Formatar("ErroSalvar", caminho, ex.Message));
                 return false;
             }
         }
@@ -374,7 +375,7 @@ namespace MarkdownEditor
             if (!_editorModificado)
                 return true;
 
-            switch (await PerguntarSalvarAsync($"Deseja salvar as alterações em \"{NomeConteudoAtual()}\"?"))
+            switch (await PerguntarSalvarAsync(Textos.Formatar("PerguntaSalvar", NomeConteudoAtual())))
             {
                 case RespostaSalvar.Salvar:
                     return await SalvarAsync(atualizarPrevia: false);

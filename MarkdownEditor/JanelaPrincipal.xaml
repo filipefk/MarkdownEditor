@@ -4,8 +4,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:MarkdownEditor"
-    xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
-    Title="Visualizador e editor de Markdown">
+    xmlns:toolkit="using:CommunityToolkit.WinUI.Controls">
 
     <Window.SystemBackdrop>
         <MicaBackdrop />
@@ -21,7 +20,6 @@
         <TitleBar
             x:Name="tlbTitulo"
             Grid.Row="0"
-            Title="Visualizador e editor de Markdown"
             IsBackButtonVisible="False"
             IsPaneToggleButtonVisible="True"
             PaneToggleRequested="tlbTitulo_PaneToggleRequested">
@@ -42,7 +40,6 @@
             <AppBarButton
                 x:Name="abbVoltar"
                 Icon="Back"
-                Label="Voltar"
                 IsEnabled="False"
                 KeyboardAcceleratorPlacementMode="Hidden"
                 Click="abbVoltar_Click">
@@ -53,7 +50,6 @@
             <AppBarButton
                 x:Name="abbAvancar"
                 Icon="Forward"
-                Label="Avançar"
                 IsEnabled="False"
                 KeyboardAcceleratorPlacementMode="Hidden"
                 Click="abbAvancar_Click">
@@ -64,12 +60,12 @@
             <AppBarSeparator />
             <AppBarElementContainer VerticalContentAlignment="Center">
                 <toolkit:Segmented x:Name="sgmModo" Margin="4,0" SelectedIndex="0" SelectionChanged="sgmModo_SelectionChanged">
-                    <toolkit:SegmentedItem Content="Visualizar" ToolTipService.ToolTip="Visualizar o conteúdo formatado">
+                    <toolkit:SegmentedItem x:Name="sgiVisualizar">
                         <toolkit:SegmentedItem.Icon>
                             <FontIcon Glyph="&#xE890;" />
                         </toolkit:SegmentedItem.Icon>
                     </toolkit:SegmentedItem>
-                    <toolkit:SegmentedItem Content="Editar" ToolTipService.ToolTip="Editar o texto">
+                    <toolkit:SegmentedItem x:Name="sgiEditar">
                         <toolkit:SegmentedItem.Icon>
                             <FontIcon Glyph="&#xE70F;" />
                         </toolkit:SegmentedItem.Icon>
@@ -80,11 +76,9 @@
             <AppBarButton
                 x:Name="abbSalvar"
                 Icon="Save"
-                Label="Salvar"
                 IsEnabled="False"
                 Visibility="Collapsed"
                 KeyboardAcceleratorPlacementMode="Hidden"
-                ToolTipService.ToolTip="Salvar (Ctrl+S)"
                 Click="abbSalvar_Click">
                 <AppBarButton.KeyboardAccelerators>
                     <KeyboardAccelerator Key="S" Modifiers="Control" />
@@ -93,17 +87,28 @@
             <AppBarButton
                 x:Name="abbDesfazer"
                 Icon="Undo"
-                Label="Desfazer"
                 IsEnabled="False"
                 Visibility="Collapsed"
-                ToolTipService.ToolTip="Desfazer as alterações não salvas"
                 Click="abbDesfazer_Click" />
             <AppBarSeparator />
+            <AppBarButton x:Name="abbIdioma">
+                <AppBarButton.Icon>
+                    <FontIcon Glyph="&#xE774;" />
+                </AppBarButton.Icon>
+                <AppBarButton.Flyout>
+                    <!-- Tag = código do idioma; vazio = idioma do Windows. Os nomes ficam sempre no próprio idioma. -->
+                    <MenuFlyout x:Name="mfoIdioma" Placement="Bottom">
+                        <RadioMenuFlyoutItem x:Name="rmiIdiomaWindows" GroupName="Idioma" Tag="" Click="rmiIdioma_Click" />
+                        <MenuFlyoutSeparator />
+                        <RadioMenuFlyoutItem x:Name="rmiPortugues" GroupName="Idioma" Tag="pt-BR" Text="Português (Brasil)" Click="rmiIdioma_Click" />
+                        <RadioMenuFlyoutItem x:Name="rmiIngles" GroupName="Idioma" Tag="en-US" Text="English" Click="rmiIdioma_Click" />
+                        <RadioMenuFlyoutItem x:Name="rmiEspanhol" GroupName="Idioma" Tag="es-ES" Text="Español" Click="rmiIdioma_Click" />
+                    </MenuFlyout>
+                </AppBarButton.Flyout>
+            </AppBarButton>
             <AppBarButton
                 x:Name="abbSobre"
-                Label="Sobre"
                 KeyboardAcceleratorPlacementMode="Hidden"
-                ToolTipService.ToolTip="Sobre o Markdown Editor (F1)"
                 Click="abbSobre_Click">
                 <AppBarButton.Icon>
                     <FontIcon Glyph="&#xE946;" />
@@ -131,11 +136,29 @@
                 Expanding="trvPastas_Expanding"
                 SelectionChanged="trvPastas_SelectionChanged"
                 ContextRequested="trvPastas_ContextRequested">
+                <TreeView.Resources>
+                    <ResourceDictionary>
+                        <ResourceDictionary.ThemeDictionaries>
+                            <ResourceDictionary x:Key="Light">
+                                <SolidColorBrush x:Key="TreeViewItemBackgroundSelected" Color="{ThemeResource SystemAccentColor}" Opacity="0.22" />
+                                <SolidColorBrush x:Key="TreeViewItemBackgroundSelectedPointerOver" Color="{ThemeResource SystemAccentColor}" Opacity="0.30" />
+                                <SolidColorBrush x:Key="TreeViewItemBackgroundSelectedPressed" Color="{ThemeResource SystemAccentColor}" Opacity="0.16" />
+                                <SolidColorBrush x:Key="TreeViewItemBackgroundSelectedDisabled" Color="{ThemeResource SystemAccentColor}" Opacity="0.12" />
+                            </ResourceDictionary>
+                            <ResourceDictionary x:Key="Dark">
+                                <SolidColorBrush x:Key="TreeViewItemBackgroundSelected" Color="{ThemeResource SystemAccentColorLight2}" Opacity="0.28" />
+                                <SolidColorBrush x:Key="TreeViewItemBackgroundSelectedPointerOver" Color="{ThemeResource SystemAccentColorLight2}" Opacity="0.36" />
+                                <SolidColorBrush x:Key="TreeViewItemBackgroundSelectedPressed" Color="{ThemeResource SystemAccentColorLight2}" Opacity="0.20" />
+                                <SolidColorBrush x:Key="TreeViewItemBackgroundSelectedDisabled" Color="{ThemeResource SystemAccentColorLight2}" Opacity="0.14" />
+                            </ResourceDictionary>
+                        </ResourceDictionary.ThemeDictionaries>
+                    </ResourceDictionary>
+                </TreeView.Resources>
                 <TreeView.ItemTemplate>
                     <DataTemplate x:DataType="TreeViewNode">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <Image Width="16" Height="16" Source="{x:Bind ((local:ItemArvore)Content).Icone, Mode=OneWay}" />
-                            <TextBlock Text="{x:Bind ((local:ItemArvore)Content).Nome}" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{x:Bind ((local:ItemArvore)Content).Nome, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </DataTemplate>
                 </TreeView.ItemTemplate>

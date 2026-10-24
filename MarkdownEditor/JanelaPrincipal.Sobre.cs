@@ -15,10 +15,7 @@ namespace MarkdownEditor
     {
         // Atualizar junto com o Monaco (wwwroot/monaco/VERSAO.txt).
         private const string VersaoMonaco = "0.52.2";
-        private const string RotuloFontes = "Fontes";
         private const string UrlFontes = "https://github.com/filipefk/MarkdownEditor";
-        private const string DescricaoSobre = "Aplicação WinUI 3 (Windows App SDK, .NET 10), com o visual Fluent Design do Windows 11, "
-            + "para navegar pelas pastas do computador, visualizar arquivos Markdown, JSON, XML e TXT com formatação legível e editá-los.";
 
         private async void abbSobre_Click(object sender, RoutedEventArgs e) => await MostrarSobreAsync();
 
@@ -30,14 +27,14 @@ namespace MarkdownEditor
 
             var informacoes = new (string Rotulo, string Valor)[]
             {
-                ("Versão", VersaoAplicativo(assembly)),
-                ("Arquitetura", RuntimeInformation.ProcessArchitecture.ToString()),
+                (Textos.Obter("SobreVersao"), VersaoAplicativo(assembly)),
+                (Textos.Obter("SobreArquitetura"), RuntimeInformation.ProcessArchitecture.ToString()),
                 (".NET", RuntimeInformation.FrameworkDescription),
                 ("Windows App SDK", VersaoWindowsAppSdk()),
                 ("WebView2 Runtime", VersaoWebView2()),
-                ("Editor Monaco", VersaoMonaco),
+                (Textos.Obter("SobreEditorMonaco"), VersaoMonaco),
                 ("Windows", Environment.OSVersion.Version.ToString()),
-                ("Instalado em", Path.TrimEndingDirectorySeparator(AppContext.BaseDirectory))
+                (Textos.Obter("SobreInstaladoEm"), Path.TrimEndingDirectorySeparator(AppContext.BaseDirectory))
             };
 
             var conteudo = new StackPanel { Spacing = 16 };
@@ -60,7 +57,7 @@ namespace MarkdownEditor
 
             conteudo.Children.Add(new TextBlock
             {
-                Text = DescricaoSobre,
+                Text = Textos.Obter("DescricaoSobre"),
                 TextWrapping = TextWrapping.Wrap,
                 IsTextSelectionEnabled = true
             });
@@ -90,7 +87,7 @@ namespace MarkdownEditor
 
             grade.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             var rotuloFontes = CriarTextoSecundario();
-            rotuloFontes.Text = RotuloFontes;
+            rotuloFontes.Text = Textos.Obter("SobreFontes");
             rotuloFontes.VerticalAlignment = VerticalAlignment.Center;
             Grid.SetRow(rotuloFontes, informacoes.Length);
             grade.Children.Add(rotuloFontes);
@@ -121,7 +118,7 @@ namespace MarkdownEditor
             texto.AppendLine(produto);
             foreach (var (rotulo, valor) in informacoes)
                 texto.AppendLine($"{rotulo}: {valor}");
-            texto.AppendLine($"{RotuloFontes}: {UrlFontes}");
+            texto.AppendLine($"{Textos.Obter("SobreFontes")}: {UrlFontes}");
 
             await _filaDialogos.WaitAsync();
             try
@@ -131,10 +128,10 @@ namespace MarkdownEditor
                     XamlRoot = grdRaiz.XamlRoot,
                     Style = (Style)Application.Current.Resources["DefaultContentDialogStyle"],
                     RequestedTheme = grdRaiz.RequestedTheme,
-                    Title = "Sobre",
+                    Title = Textos.Obter("Sobre"),
                     Content = conteudo,
-                    PrimaryButtonText = "Copiar informações",
-                    CloseButtonText = "OK",
+                    PrimaryButtonText = Textos.Obter("SobreCopiarInformacoes"),
+                    CloseButtonText = Textos.Obter("Ok"),
                     DefaultButton = ContentDialogButton.Close
                 };
                 // Copiar não fecha o diálogo; o próprio botão indica o resultado
@@ -142,7 +139,7 @@ namespace MarkdownEditor
                 dialogo.PrimaryButtonClick += (s, args) =>
                 {
                     args.Cancel = true;
-                    s.PrimaryButtonText = CopiarInformacoes(texto.ToString()) ? "Copiado" : "Não foi possível copiar";
+                    s.PrimaryButtonText = Textos.Obter(CopiarInformacoes(texto.ToString()) ? "SobreCopiado" : "SobreNaoFoiPossivelCopiar");
                 };
                 await dialogo.ShowAsync();
             }
@@ -162,7 +159,7 @@ namespace MarkdownEditor
         {
             var versao = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
                 ?? assembly.GetName().Version?.ToString()
-                ?? "desconhecida";
+                ?? Textos.Obter("SobreDesconhecida");
             // O SDK pode acrescentar "+<hash do commit>" à versão informativa.
             var sufixo = versao.IndexOf('+', StringComparison.Ordinal);
             return sufixo >= 0 ? versao[..sufixo] : versao;
@@ -179,12 +176,12 @@ namespace MarkdownEditor
             try
             {
                 var versao = CoreWebView2Environment.GetAvailableBrowserVersionString();
-                return string.IsNullOrEmpty(versao) ? "não instalado" : versao;
+                return string.IsNullOrEmpty(versao) ? Textos.Obter("SobreNaoInstalado") : versao;
             }
             catch (Exception ex)
             {
                 Trace.TraceError(ex.ToString());
-                return "não instalado";
+                return Textos.Obter("SobreNaoInstalado");
             }
         }
 

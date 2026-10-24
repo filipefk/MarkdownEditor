@@ -40,7 +40,6 @@ namespace MarkdownEditor
             mfiCopiarNome = CriarItem(GlifoCopiar, (_, _) => ExecutarNoMenu(CopiarNomeAsync));
             mfsAtualizar = new MenuFlyoutSeparator();
             mfiAtualizar = CriarItem(GlifoAtualizar, mfiAtualizar_Click);
-            mfiAtualizar.Text = "Atualizar";
 
             mfoArvore = new MenuFlyout();
             mfoArvore.Items.Add(mfiAbrirLocal);
@@ -77,6 +76,7 @@ namespace MarkdownEditor
             mfiCopiarNome.Text = textos.CopiarNome;
             mfsAtualizar.Visibility = item.EhArquivo ? Visibility.Collapsed : Visibility.Visible;
             mfiAtualizar.Visibility = item.EhArquivo ? Visibility.Collapsed : Visibility.Visible;
+            mfiAtualizar.Text = Textos.Obter("Atualizar");
 
             var alvo = (FrameworkElement?)container ?? trvPastas;
             if (e.TryGetPosition(alvo, out var posicao))
@@ -94,8 +94,8 @@ namespace MarkdownEditor
 
         private static (string AbrirLocal, string CopiarCaminho, string CopiarNome) TextosMenu(bool ehArquivo) =>
             ehArquivo
-                ? ("Abrir local do arquivo", "Copiar caminho completo", "Copiar nome do arquivo")
-                : ("Abrir pasta", "Copiar caminho completo", "Copiar nome da pasta");
+                ? (Textos.Obter("AbrirLocalArquivo"), Textos.Obter("CopiarCaminho"), Textos.Obter("CopiarNomeArquivo"))
+                : (Textos.Obter("AbrirPasta"), Textos.Obter("CopiarCaminho"), Textos.Obter("CopiarNomePasta"));
 
         private async Task AbrirLocalAsync(ItemArvore item)
         {
@@ -125,7 +125,7 @@ namespace MarkdownEditor
             }
             catch (Exception ex)
             {
-                await AvisarAsync($"Não foi possível copiar para a área de transferência.\n\n{ex.Message}");
+                await AvisarAsync(Textos.Formatar("ErroCopiar", ex.Message));
             }
         }
 
@@ -139,18 +139,18 @@ namespace MarkdownEditor
         {
             trvPastas.RootNodes.Clear();
 
-            var atalhos = new (string Nome, string Caminho)[]
+            var atalhos = new (string ChaveNome, string Caminho)[]
             {
-                ("Área de Trabalho", Environment.GetFolderPath(Environment.SpecialFolder.Desktop)),
+                ("AreaTrabalho", Environment.GetFolderPath(Environment.SpecialFolder.Desktop)),
                 ("Documentos", Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)),
                 ("Downloads", Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads"))
             };
 
             // Pastas especiais e unidades usam o próprio ícone do Explorer (chave = caminho).
-            foreach (var (nome, caminho) in atalhos)
+            foreach (var (chaveNome, caminho) in atalhos)
             {
                 if (!string.IsNullOrEmpty(caminho) && Directory.Exists(caminho))
-                    trvPastas.RootNodes.Add(CriarNoPasta(nome, caminho, chaveIcone: caminho));
+                    trvPastas.RootNodes.Add(CriarNoPasta(Textos.Obter(chaveNome), caminho, chaveIcone: caminho, chaveNome: chaveNome));
             }
 
             foreach (var unidade in DriveInfo.GetDrives())
@@ -168,10 +168,11 @@ namespace MarkdownEditor
         }
 
         // Pastas especiais e unidades (chaveIcone = caminho) usam o próprio ícone; as demais, o ícone genérico de pasta.
-        private static TreeViewNode CriarNoPasta(string nome, string caminho, string? chaveIcone = null)
+        private static TreeViewNode CriarNoPasta(string nome, string caminho, string? chaveIcone = null, string? chaveNome = null)
         {
             var item = new ItemArvore(nome, caminho, false)
             {
+                ChaveNome = chaveNome,
                 Icone = chaveIcone != null
                     ? IconesShell.DoCaminho(chaveIcone, caminho) ?? IconesShell.DoTipo(ChaveIconePasta, ChaveIconePasta, ehPasta: true)
                     : IconesShell.DoTipo(ChaveIconePasta, ChaveIconePasta, ehPasta: true)

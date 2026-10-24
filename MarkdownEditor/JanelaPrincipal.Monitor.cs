@@ -114,9 +114,7 @@ namespace MarkdownEditor
 
             if (_editorModificado)
             {
-                var recarregar = await PerguntarSimNaoAsync(
-                    $"O arquivo \"{Path.GetFileName(caminho)}\" foi alterado fora do editor.\n\n" +
-                    "Deseja recarregá-lo e descartar as suas alterações?");
+                var recarregar = await PerguntarSimNaoAsync(Textos.Formatar("ArquivoAlteradoFora", Path.GetFileName(caminho)));
 
                 if (!string.Equals(caminho, _arquivoAtual, StringComparison.OrdinalIgnoreCase))
                     return;
@@ -142,8 +140,8 @@ namespace MarkdownEditor
             var manterAlteracoes = arquivoExibido && _editorModificado;
 
             await AvisarAsync(
-                $"O arquivo \"{Path.GetFileName(caminho)}\" foi excluído ou movido:\n{caminho}" +
-                (manterAlteracoes ? "\n\nAs alterações continuam no editor; use Salvar para gravá-las em um novo arquivo." : string.Empty));
+                Textos.Formatar("ArquivoExcluido", Path.GetFileName(caminho), caminho) +
+                (manterAlteracoes ? "\n\n" + Textos.Obter("ArquivoExcluidoAlteracoes") : string.Empty));
 
             if (!arquivoExibido || !string.Equals(caminho, _arquivoAtual, StringComparison.OrdinalIgnoreCase))
                 return;

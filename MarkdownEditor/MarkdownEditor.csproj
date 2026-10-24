@@ -15,6 +15,8 @@
     <Authors>Filipe Kanitz</Authors>
     <Copyright>Copyright © Filipe Kanitz</Copyright>
     <NeutralLanguage>pt-BR</NeutralLanguage>
+    <!-- Idioma padrão dos textos (Strings\<idioma>\Resources.resw) no MarkdownEditor.pri. -->
+    <DefaultLanguage>pt-BR</DefaultLanguage>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationIcon>..\Markdown.ico</ApplicationIcon>
@@ -55,7 +57,7 @@
 
   <!-- Arquivos parciais da JanelaPrincipal: agrupados sob o code-behind do XAML -->
   <ItemGroup>
-    <Compile Update="JanelaPrincipal.Arvore.cs;JanelaPrincipal.Dialogos.cs;JanelaPrincipal.Editor.cs;JanelaPrincipal.Historico.cs;JanelaPrincipal.Monitor.cs;JanelaPrincipal.Preview.cs;JanelaPrincipal.Sobre.cs;JanelaPrincipal.Tema.cs">
+    <Compile Update="JanelaPrincipal.Arvore.cs;JanelaPrincipal.Dialogos.cs;JanelaPrincipal.Editor.cs;JanelaPrincipal.Historico.cs;JanelaPrincipal.Idioma.cs;JanelaPrincipal.Monitor.cs;JanelaPrincipal.Preview.cs;JanelaPrincipal.Sobre.cs;JanelaPrincipal.Tema.cs">
       <DependentUpon>JanelaPrincipal.xaml</DependentUpon>
     </Compile>
   </ItemGroup>

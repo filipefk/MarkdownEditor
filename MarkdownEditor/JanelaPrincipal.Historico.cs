@@ -40,17 +40,17 @@ namespace MarkdownEditor
         {
             abbVoltar.IsEnabled = _historicoVoltar.Count > 0;
             ToolTipService.SetToolTip(abbVoltar, _historicoVoltar.Last != null
-                ? $"Voltar para {ObterNomeEntrada(_historicoVoltar.Last.Value)} (Alt+←)"
-                : "Voltar (Alt+←)");
+                ? Textos.Formatar("VoltarParaDica", ObterNomeEntrada(_historicoVoltar.Last.Value))
+                : Textos.Obter("VoltarDica"));
 
             abbAvancar.IsEnabled = _historicoAvancar.Count > 0;
             ToolTipService.SetToolTip(abbAvancar, _historicoAvancar.Last != null
-                ? $"Avançar para {ObterNomeEntrada(_historicoAvancar.Last.Value)} (Alt+→)"
-                : "Avançar (Alt+→)");
+                ? Textos.Formatar("AvancarParaDica", ObterNomeEntrada(_historicoAvancar.Last.Value))
+                : Textos.Obter("AvancarDica"));
         }
 
         private static string ObterNomeEntrada(EntradaHistorico entrada) =>
-            entrada.Caminho != null ? Path.GetFileName(entrada.Caminho) : NomeTextoColado;
+            entrada.Caminho != null ? Path.GetFileName(entrada.Caminho) : Textos.Obter("NomeTextoColado");
 
         private void abbVoltar_Click(object sender, RoutedEventArgs e) => Voltar();
 
@@ -99,7 +99,7 @@ namespace MarkdownEditor
             }
 
             LimparSelecaoArvore();
-            await RenderizarAsync(entrada.Texto ?? string.Empty, NomeTextoColado);
+            await RenderizarAsync(entrada.Texto ?? string.Empty, Textos.Obter("NomeTextoColado"));
             DefinirArquivoAtual(null);
             await CarregarNoEditorAsync(entrada.Texto ?? string.Empty, null, null);
             return true;

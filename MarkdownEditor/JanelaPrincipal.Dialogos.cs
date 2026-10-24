@@ -48,13 +48,15 @@ namespace MarkdownEditor
         }
 
         private async Task AvisarAsync(string mensagem) =>
-            await MostrarDialogoAsync(mensagem, null, null, "OK", ContentDialogButton.Close);
+            await MostrarDialogoAsync(mensagem, null, null, Textos.Obter("Ok"), ContentDialogButton.Close);
 
         private async Task<bool> PerguntarSimNaoAsync(string mensagem) =>
-            await MostrarDialogoAsync(mensagem, "Sim", null, "Não", ContentDialogButton.Primary) == ContentDialogResult.Primary;
+            await MostrarDialogoAsync(mensagem, Textos.Obter("Sim"), null, Textos.Obter("Nao"), ContentDialogButton.Primary)
+                == ContentDialogResult.Primary;
 
         private async Task<RespostaSalvar> PerguntarSalvarAsync(string mensagem) =>
-            await MostrarDialogoAsync(mensagem, "Salvar", "Não salvar", "Cancelar", ContentDialogButton.Primary) switch
+            await MostrarDialogoAsync(mensagem, Textos.Obter("Salvar"), Textos.Obter("NaoSalvar"), Textos.Obter("Cancelar"),
+                ContentDialogButton.Primary) switch
             {
                 ContentDialogResult.Primary => RespostaSalvar.Salvar,
                 ContentDialogResult.Secondary => RespostaSalvar.NaoSalvar,
@@ -67,7 +69,7 @@ namespace MarkdownEditor
         {
             try
             {
-                await AvisarAsync($"Ocorreu um erro inesperado:\n\n{ex.Message}");
+                await AvisarAsync(Textos.Formatar("ErroInesperado", ex.Message));
             }
             catch (Exception erroDialogo)
             {

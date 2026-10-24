@@ -17,7 +17,6 @@ namespace MarkdownEditor
         private const string PaginaPreview = "https://preview.local/preview-md-json-xml.html";
         private const string PaginaEditor = "https://preview.local/editor.html";
         private const string UrlDownloadWebView2 = "https://go.microsoft.com/fwlink/p/?LinkId=2124703";
-        private const string TituloPadrao = "Visualizador e editor de Markdown";
         private const string NomeAplicativo = "Markdown Editor";
         private const string MensagemArquivoSolto = "arquivoSolto";
         private const string PrefixoMensagemTextoColado = "textoColado:";
@@ -32,7 +31,6 @@ namespace MarkdownEditor
         private const int IntervaloRecargaMs = 300;
         private const int MaximoTentativasRecarga = 5;
         private const string TemaEscuro = "dark";
-        private const string NomeTextoColado = "texto colado";
         private const int LimiteHistorico = 10;
         private const int LarguraMinimaArvore = 50;
         private const int LarguraInicial = 1100;
@@ -162,6 +160,9 @@ namespace MarkdownEditor
             _temporizadorRecarga.Tick += temporizadorRecarga_Tick;
 
             ConfigurarMenuArvore();
+            var idiomaSalvo = Configuracoes.Carregar().Idioma;
+            _idiomaEscolhido = idiomaSalvo != null && Textos.IdiomasSuportados.Contains(idiomaSalvo) ? idiomaSalvo : null;
+            AplicarIdioma();
             // Voltar/Avançar do Windows (teclas e botões laterais do mouse, que o Windows converte em GoBack/GoForward).
             // O parser de XAML não converte "GoBack"/"GoForward" em VirtualKey.
             abbVoltar.KeyboardAccelerators.Add(new KeyboardAccelerator { Key = Windows.System.VirtualKey.GoBack });

@@ -17,9 +17,7 @@ namespace MarkdownEditor
             if (!WebView2Instalado())
             {
                 _editorPronto.TrySetResult(false);
-                if (await PerguntarSimNaoAsync(
-                        "O Microsoft Edge WebView2 Runtime não está instalado, por isso a visualização e a edição não estão disponíveis.\n\n" +
-                        "Deseja abrir a página de download agora?"))
+                if (await PerguntarSimNaoAsync(Textos.Obter("WebView2Ausente")))
                     await AbrirComShellAsync(UrlDownloadWebView2);
                 return;
             }
@@ -35,6 +33,7 @@ namespace MarkdownEditor
                 ConfigurarSeguranca(preview.Settings);
                 preview.SetVirtualHostNameToFolderMapping(HostPreview, PastaWwwroot(), CoreWebView2HostResourceAccessKind.Allow);
                 await preview.AddScriptToExecuteOnDocumentCreatedAsync(ScriptMonitorarEventos);
+                await preview.AddScriptToExecuteOnDocumentCreatedAsync(ScriptIdiomaPrevia);
                 preview.WebMessageReceived += CoreWebView2_WebMessageReceived;
                 preview.NavigationCompleted += CoreWebView2_NavigationCompleted;
                 preview.NavigationStarting += (_, e) => PermitirSomente(e, PaginaPreview);
@@ -47,9 +46,7 @@ namespace MarkdownEditor
             catch (Exception ex)
             {
                 _editorPronto.TrySetResult(false);
-                await AvisarAsync(
-                    "Não foi possível inicializar o visualizador (WebView2).\n" +
-                    "Verifique se o Microsoft Edge WebView2 Runtime está instalado.\n\n" + ex.Message);
+                await AvisarAsync(Textos.Formatar("ErroWebView2", ex.Message));
             }
         }
 
@@ -89,6 +86,7 @@ namespace MarkdownEditor
                 return;
 
             _previewPronto = true;
+            await AplicarIdiomaNaPreviaAsync();
 
             if (_arquivoPendente != null)
             {
@@ -216,7 +214,7 @@ namespace MarkdownEditor
 
                 if (uri.IsUnc)
                 {
-                    await AvisarAsync($"Links para caminhos de rede não são abertos:\n{href}");
+                    await AvisarAsync(Textos.Formatar("LinkRede", href));
                     return;
                 }
 
@@ -226,7 +224,7 @@ namespace MarkdownEditor
             {
                 if (_arquivoAtual == null)
                 {
-                    await AvisarAsync("Não é possível abrir links relativos de um conteúdo sem arquivo de origem.");
+                    await AvisarAsync(Textos.Obter("LinkRelativoSemArquivo"));
                     return;
                 }
 
@@ -245,7 +243,7 @@ namespace MarkdownEditor
                 }
                 catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
                 {
-                    await AvisarAsync($"Link inválido:\n{href}");
+                    await AvisarAsync(Textos.Formatar("LinkInvalido", href));
                     return;
                 }
             }
@@ -259,7 +257,7 @@ namespace MarkdownEditor
 
             if (!File.Exists(caminho))
             {
-                await AvisarAsync($"Arquivo não encontrado:\n{caminho}");
+                await AvisarAsync(Textos.Formatar("ArquivoNaoEncontrado", caminho));
                 return;
             }
 
@@ -285,7 +283,7 @@ namespace MarkdownEditor
             }
             catch (Exception ex)
             {
-                await AvisarAsync($"Não foi possível abrir:\n{destino}\n\n{ex.Message}");
+                await AvisarAsync(Textos.Formatar("ErroAbrir", destino, ex.Message));
             }
         }
 
@@ -298,7 +296,7 @@ namespace MarkdownEditor
             }
             catch (Exception ex)
             {
-                await AvisarAsync($"Não foi possível abrir:\n{caminho}\n\n{ex.Message}");
+                await AvisarAsync(Textos.Formatar("ErroAbrir", caminho, ex.Message));
             }
         }
 
@@ -338,7 +336,7 @@ namespace MarkdownEditor
 
             e.AcceptedOperation = DataPackageOperation.Copy;
             if (e.DragUIOverride != null)
-                e.DragUIOverride.Caption = "Abrir";
+                e.DragUIOverride.Caption = Textos.Obter("ArrastarAbrir");
         }
 
         private async void grdRaiz_Drop(object sender, DragEventArgs e)
@@ -366,7 +364,7 @@ namespace MarkdownEditor
         {
             if (!ExtensoesSuportadas.Contains(Path.GetExtension(caminho)))
             {
-                await AvisarAsync($"Formato não suportado:\n{caminho}\n\nSão aceitos arquivos .md, .markdown, .json, .xml e .txt.");
+                await AvisarAsync(Textos.Formatar("FormatoNaoSuportado", caminho));
                 await RestaurarPreviaAsync();
                 return;
             }
@@ -406,7 +404,7 @@ namespace MarkdownEditor
             }
             catch (Exception ex)
             {
-                await AvisarAsync($"Não foi possível abrir o arquivo:\n{caminho}\n\n{ex.Message}");
+                await AvisarAsync(Textos.Formatar("ErroAbrirArquivo", caminho, ex.Message));
                 await RestaurarPreviaAsync();
                 return;
             }
@@ -430,7 +428,7 @@ namespace MarkdownEditor
             }
             catch (Exception ex)
             {
-                await AvisarAsync($"Não foi possível abrir o arquivo:\n{caminho}\n\n{ex.Message}");
+                await AvisarAsync(Textos.Formatar("ErroAbrirArquivo", caminho, ex.Message));
                 return false;
             }
 

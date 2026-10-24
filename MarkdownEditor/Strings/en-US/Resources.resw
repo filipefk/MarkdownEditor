@@ -1,0 +1,255 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="TituloPadrao" xml:space="preserve">
+    <value>Markdown viewer and editor</value>
+  </data>
+  <data name="NomeTextoColado" xml:space="preserve">
+    <value>pasted text</value>
+  </data>
+  <data name="Voltar" xml:space="preserve">
+    <value>Back</value>
+  </data>
+  <data name="VoltarDica" xml:space="preserve">
+    <value>Back (Alt+←)</value>
+  </data>
+  <data name="VoltarParaDica" xml:space="preserve">
+    <value>Back to {0} (Alt+←)</value>
+  </data>
+  <data name="Avancar" xml:space="preserve">
+    <value>Forward</value>
+  </data>
+  <data name="AvancarDica" xml:space="preserve">
+    <value>Forward (Alt+→)</value>
+  </data>
+  <data name="AvancarParaDica" xml:space="preserve">
+    <value>Forward to {0} (Alt+→)</value>
+  </data>
+  <data name="Visualizar" xml:space="preserve">
+    <value>View</value>
+  </data>
+  <data name="VisualizarDica" xml:space="preserve">
+    <value>View the formatted content</value>
+  </data>
+  <data name="Editar" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="EditarDica" xml:space="preserve">
+    <value>Edit the text</value>
+  </data>
+  <data name="Salvar" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="SalvarDica" xml:space="preserve">
+    <value>Save (Ctrl+S)</value>
+  </data>
+  <data name="SalvarComoDica" xml:space="preserve">
+    <value>Save as... (Ctrl+S)</value>
+  </data>
+  <data name="Desfazer" xml:space="preserve">
+    <value>Undo</value>
+  </data>
+  <data name="DesfazerDica" xml:space="preserve">
+    <value>Undo unsaved changes</value>
+  </data>
+  <data name="Sobre" xml:space="preserve">
+    <value>About</value>
+  </data>
+  <data name="SobreDica" xml:space="preserve">
+    <value>About Markdown Editor (F1)</value>
+  </data>
+  <data name="Idioma" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="IdiomaDica" xml:space="preserve">
+    <value>Interface language</value>
+  </data>
+  <data name="IdiomaWindows" xml:space="preserve">
+    <value>Windows language</value>
+  </data>
+  <data name="AreaTrabalho" xml:space="preserve">
+    <value>Desktop</value>
+  </data>
+  <data name="Documentos" xml:space="preserve">
+    <value>Documents</value>
+  </data>
+  <data name="Downloads" xml:space="preserve">
+    <value>Downloads</value>
+  </data>
+  <data name="AbrirLocalArquivo" xml:space="preserve">
+    <value>Open file location</value>
+  </data>
+  <data name="AbrirPasta" xml:space="preserve">
+    <value>Open folder</value>
+  </data>
+  <data name="CopiarCaminho" xml:space="preserve">
+    <value>Copy full path</value>
+  </data>
+  <data name="CopiarNomeArquivo" xml:space="preserve">
+    <value>Copy file name</value>
+  </data>
+  <data name="CopiarNomePasta" xml:space="preserve">
+    <value>Copy folder name</value>
+  </data>
+  <data name="Atualizar" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="ErroCopiar" xml:space="preserve">
+    <value>Could not copy to the clipboard.&#xA;&#xA;{0}</value>
+  </data>
+  <data name="Ok" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Sim" xml:space="preserve">
+    <value>Yes</value>
+  </data>
+  <data name="Nao" xml:space="preserve">
+    <value>No</value>
+  </data>
+  <data name="NaoSalvar" xml:space="preserve">
+    <value>Don&apos;t save</value>
+  </data>
+  <data name="Cancelar" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="ErroInesperado" xml:space="preserve">
+    <value>An unexpected error occurred:&#xA;&#xA;{0}</value>
+  </data>
+  <data name="SalvarComoTitulo" xml:space="preserve">
+    <value>Save as</value>
+  </data>
+  <data name="SemTitulo" xml:space="preserve">
+    <value>Untitled</value>
+  </data>
+  <data name="TipoTexto" xml:space="preserve">
+    <value>Text</value>
+  </data>
+  <data name="ErroSalvar" xml:space="preserve">
+    <value>Could not save the file:&#xA;{0}&#xA;&#xA;{1}</value>
+  </data>
+  <data name="PerguntaSalvar" xml:space="preserve">
+    <value>Do you want to save the changes to &quot;{0}&quot;?</value>
+  </data>
+  <data name="ArquivoAlteradoFora" xml:space="preserve">
+    <value>The file &quot;{0}&quot; was changed outside the editor.&#xA;&#xA;Do you want to reload it and discard your changes?</value>
+  </data>
+  <data name="ArquivoExcluido" xml:space="preserve">
+    <value>The file &quot;{0}&quot; was deleted or moved:&#xA;{1}</value>
+  </data>
+  <data name="ArquivoExcluidoAlteracoes" xml:space="preserve">
+    <value>Your changes are still in the editor; use Save to write them to a new file.</value>
+  </data>
+  <data name="WebView2Ausente" xml:space="preserve">
+    <value>Microsoft Edge WebView2 Runtime is not installed, so viewing and editing are not available.&#xA;&#xA;Do you want to open the download page now?</value>
+  </data>
+  <data name="ErroWebView2" xml:space="preserve">
+    <value>Could not start the viewer (WebView2).&#xA;Check that Microsoft Edge WebView2 Runtime is installed.&#xA;&#xA;{0}</value>
+  </data>
+  <data name="LinkRede" xml:space="preserve">
+    <value>Links to network paths are not opened:&#xA;{0}</value>
+  </data>
+  <data name="LinkRelativoSemArquivo" xml:space="preserve">
+    <value>Relative links cannot be opened from content that has no source file.</value>
+  </data>
+  <data name="LinkInvalido" xml:space="preserve">
+    <value>Invalid link:&#xA;{0}</value>
+  </data>
+  <data name="ArquivoNaoEncontrado" xml:space="preserve">
+    <value>File not found:&#xA;{0}</value>
+  </data>
+  <data name="ErroAbrir" xml:space="preserve">
+    <value>Could not open:&#xA;{0}&#xA;&#xA;{1}</value>
+  </data>
+  <data name="ErroAbrirArquivo" xml:space="preserve">
+    <value>Could not open the file:&#xA;{0}&#xA;&#xA;{1}</value>
+  </data>
+  <data name="FormatoNaoSuportado" xml:space="preserve">
+    <value>Unsupported format:&#xA;{0}&#xA;&#xA;Supported files are .md, .markdown, .json, .xml and .txt.</value>
+  </data>
+  <data name="ArrastarAbrir" xml:space="preserve">
+    <value>Open</value>
+  </data>
+  <data name="DescricaoSobre" xml:space="preserve">
+    <value>WinUI 3 application (Windows App SDK, .NET 10), with the Windows 11 Fluent Design look, to browse the computer&apos;s folders, view Markdown, JSON, XML and TXT files with readable formatting, and edit them.</value>
+  </data>
+  <data name="SobreVersao" xml:space="preserve">
+    <value>Version</value>
+  </data>
+  <data name="SobreArquitetura" xml:space="preserve">
+    <value>Architecture</value>
+  </data>
+  <data name="SobreEditorMonaco" xml:space="preserve">
+    <value>Monaco Editor</value>
+  </data>
+  <data name="SobreInstaladoEm" xml:space="preserve">
+    <value>Installed in</value>
+  </data>
+  <data name="SobreFontes" xml:space="preserve">
+    <value>Source code</value>
+  </data>
+  <data name="SobreCopiarInformacoes" xml:space="preserve">
+    <value>Copy information</value>
+  </data>
+  <data name="SobreCopiado" xml:space="preserve">
+    <value>Copied</value>
+  </data>
+  <data name="SobreNaoFoiPossivelCopiar" xml:space="preserve">
+    <value>Could not copy</value>
+  </data>
+  <data name="SobreNaoInstalado" xml:space="preserve">
+    <value>not installed</value>
+  </data>
+  <data name="SobreDesconhecida" xml:space="preserve">
+    <value>unknown</value>
+  </data>
+  <data name="PreviaTitulo" xml:space="preserve">
+    <value>MD, JSON, XML and TXT reader</value>
+  </data>
+  <data name="PreviaTag" xml:space="preserve">
+    <value>100% offline markdown, json, xml and text preview</value>
+  </data>
+  <data name="PreviaTema" xml:space="preserve">
+    <value>🌓 Theme</value>
+  </data>
+  <data name="PreviaTemaDica" xml:space="preserve">
+    <value>Toggle light/dark theme</value>
+  </data>
+  <data name="PreviaImprimir" xml:space="preserve">
+    <value>Export / Print</value>
+  </data>
+  <data name="PreviaCopiar" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="PreviaNovo" xml:space="preserve">
+    <value>Open another file</value>
+  </data>
+  <data name="PreviaSolteTitulo" xml:space="preserve">
+    <value>Drop a .md, .json, .xml or .txt file here</value>
+  </data>
+  <data name="PreviaSolteTexto" xml:space="preserve">
+    <value>Drag the file to this area,&#xA;or click to choose it on your computer.</value>
+  </data>
+  <data name="PreviaEscolher" xml:space="preserve">
+    <value>Choose file</value>
+  </data>
+  <data name="PreviaColar" xml:space="preserve">
+    <value>You can also paste markdown, json or xml text directly (Ctrl+V / Cmd+V)</value>
+  </data>
+  <data name="PreviaRodape" xml:space="preserve">
+    <value>Rendered locally in the browser — no file is sent to the internet.</value>
+  </data>
+  <data name="PreviaSolteAqui" xml:space="preserve">
+    <value>Drop the file here to open it</value>
+  </data>
+</root>
