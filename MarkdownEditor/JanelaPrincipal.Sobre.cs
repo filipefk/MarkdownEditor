@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Markup;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.Web.WebView2.Core;
 using System.Diagnostics;
@@ -71,11 +72,8 @@ namespace MarkdownEditor
             {
                 grade.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
-                var rotulo = new TextBlock
-                {
-                    Text = informacoes[i].Rotulo,
-                    Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"]
-                };
+                var rotulo = CriarTextoSecundario();
+                rotulo.Text = informacoes[i].Rotulo;
                 Grid.SetRow(rotulo, i);
                 grade.Children.Add(rotulo);
 
@@ -91,12 +89,9 @@ namespace MarkdownEditor
             }
 
             grade.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            var rotuloFontes = new TextBlock
-            {
-                Text = RotuloFontes,
-                VerticalAlignment = VerticalAlignment.Center,
-                Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"]
-            };
+            var rotuloFontes = CriarTextoSecundario();
+            rotuloFontes.Text = RotuloFontes;
+            rotuloFontes.VerticalAlignment = VerticalAlignment.Center;
             Grid.SetRow(rotuloFontes, informacoes.Length);
             grade.Children.Add(rotuloFontes);
 
@@ -116,12 +111,10 @@ namespace MarkdownEditor
 
             if (!string.IsNullOrEmpty(copyright))
             {
-                conteudo.Children.Add(new TextBlock
-                {
-                    Text = copyright,
-                    Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
-                    Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"]
-                });
+                var textoCopyright = CriarTextoSecundario();
+                textoCopyright.Text = copyright;
+                textoCopyright.Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"];
+                conteudo.Children.Add(textoCopyright);
             }
 
             var texto = new StringBuilder();
@@ -158,6 +151,12 @@ namespace MarkdownEditor
                 _filaDialogos.Release();
             }
         }
+
+        // Application.Current.Resources[...] devolve o pincel do tema do aplicativo (o do Windows), fixo;
+        // o {ThemeResource} é resolvido pelo tema efetivo do elemento (RequestedTheme do diálogo).
+        private static TextBlock CriarTextoSecundario() => (TextBlock)XamlReader.Load(
+            "<TextBlock xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\" "
+            + "Foreground=\"{ThemeResource TextFillColorSecondaryBrush}\"/>");
 
         private static string VersaoAplicativo(Assembly assembly)
         {
