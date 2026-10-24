@@ -162,12 +162,11 @@ namespace MarkdownEditor
             _temporizadorRecarga.Tick += temporizadorRecarga_Tick;
 
             ConfigurarMenuArvore();
-            // Teclas Voltar/Avançar do teclado: o parser de XAML não converte "GoBack"/"GoForward" em VirtualKey.
+            // Voltar/Avançar do Windows (teclas e botões laterais do mouse, que o Windows converte em GoBack/GoForward).
+            // O parser de XAML não converte "GoBack"/"GoForward" em VirtualKey.
             abbVoltar.KeyboardAccelerators.Add(new KeyboardAccelerator { Key = Windows.System.VirtualKey.GoBack });
             abbAvancar.KeyboardAccelerators.Add(new KeyboardAccelerator { Key = Windows.System.VirtualKey.GoForward });
             grdRaiz.Loaded += grdRaiz_Loaded;
-            // Botões laterais do mouse (fora dos WebView2, que avisam pelo script)
-            grdRaiz.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(grdRaiz_PointerPressed), true);
             ConfigurarArrastarSoltar();
 
             AplicarTema(SistemaUsaTemaEscuro());
@@ -200,21 +199,6 @@ namespace MarkdownEditor
             {
                 apresentador.PreferredMinimumWidth = (int)(LarguraMinima * escala);
                 apresentador.PreferredMinimumHeight = (int)(AlturaMinima * escala);
-            }
-        }
-
-        private void grdRaiz_PointerPressed(object sender, PointerRoutedEventArgs e)
-        {
-            var propriedades = e.GetCurrentPoint(grdRaiz).Properties;
-            if (propriedades.IsXButton1Pressed)
-            {
-                Voltar();
-                e.Handled = true;
-            }
-            else if (propriedades.IsXButton2Pressed)
-            {
-                Avancar();
-                e.Handled = true;
             }
         }
 
