@@ -14,6 +14,8 @@ namespace MarkdownEditor
     {
         // Atualizar junto com o Monaco (wwwroot/monaco/VERSAO.txt).
         private const string VersaoMonaco = "0.52.2";
+        private const string RotuloFontes = "Fontes";
+        private const string UrlFontes = "https://github.com/filipefk/MarkdownEditor";
         private const string DescricaoSobre = "Aplicação WinUI 3 (Windows App SDK, .NET 10), com o visual Fluent Design do Windows 11, "
             + "para navegar pelas pastas do computador, visualizar arquivos Markdown, JSON, XML e TXT com formatação legível e editá-los.";
 
@@ -87,6 +89,29 @@ namespace MarkdownEditor
                 Grid.SetColumn(valor, 1);
                 grade.Children.Add(valor);
             }
+
+            grade.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            var rotuloFontes = new TextBlock
+            {
+                Text = RotuloFontes,
+                VerticalAlignment = VerticalAlignment.Center,
+                Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"]
+            };
+            Grid.SetRow(rotuloFontes, informacoes.Length);
+            grade.Children.Add(rotuloFontes);
+
+            var linkFontes = new HyperlinkButton
+            {
+                Content = UrlFontes,
+                NavigateUri = new Uri(UrlFontes),
+                Padding = new Thickness(0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            ToolTipService.SetToolTip(linkFontes, UrlFontes);
+            Grid.SetRow(linkFontes, informacoes.Length);
+            Grid.SetColumn(linkFontes, 1);
+            grade.Children.Add(linkFontes);
+
             conteudo.Children.Add(grade);
 
             if (!string.IsNullOrEmpty(copyright))
@@ -103,6 +128,7 @@ namespace MarkdownEditor
             texto.AppendLine(produto);
             foreach (var (rotulo, valor) in informacoes)
                 texto.AppendLine($"{rotulo}: {valor}");
+            texto.AppendLine($"{RotuloFontes}: {UrlFontes}");
 
             await _filaDialogos.WaitAsync();
             try

@@ -2,7 +2,7 @@
 Name: "brazilian"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
 
 [Setup]
-; Identificador fixo da instalação (igual ao padrão anterior do Inno, que usava o AppName), para upgrades e desinstalação estáveis
+; Identificador fixo da instalação, para upgrades e desinstalação estáveis
 AppId=Markdown Editor
 ArchitecturesInstallIn64BitMode=x64compatible
 AppName=Markdown Editor
@@ -18,13 +18,6 @@ Compression=lzma
 SolidCompression=yes
 DisableProgramGroupPage=yes
 ChangesAssociations=yes
-
-[InstallDelete]
-; Sobras da versão 1.x (WinForms) que a versão WinUI não usa mais
-Type: filesandordirs; Name: "{app}\runtimes"
-Type: files; Name: "{app}\Microsoft.Web.WebView2.WinForms.*"
-Type: files; Name: "{app}\Microsoft.Web.WebView2.Wpf.*"
-Type: files; Name: "{app}\Microsoft.Web.WebView2.Core.xml"
 
 [Files]
 ; Copia todo o resultado do dotnet publish (inclui wwwroot com o Monaco, Assets e o Windows App SDK self-contained)
