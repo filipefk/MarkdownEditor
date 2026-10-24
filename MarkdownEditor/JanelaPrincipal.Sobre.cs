@@ -14,6 +14,8 @@ namespace MarkdownEditor
     {
         // Atualizar junto com o Monaco (wwwroot/monaco/VERSAO.txt).
         private const string VersaoMonaco = "0.52.2";
+        private const string DescricaoSobre = "Aplicação WinUI 3 (Windows App SDK, .NET 10), com o visual Fluent Design do Windows 11, "
+            + "para navegar pelas pastas do computador, visualizar arquivos Markdown, JSON, XML e TXT com formatação legível e editá-los.";
 
         private async void abbSobre_Click(object sender, RoutedEventArgs e) => await MostrarSobreAsync();
 
@@ -21,7 +23,6 @@ namespace MarkdownEditor
         {
             var assembly = typeof(App).Assembly;
             var produto = assembly.GetCustomAttribute<AssemblyProductAttribute>()?.Product ?? NomeAplicativo;
-            var descricao = assembly.GetCustomAttribute<AssemblyDescriptionAttribute>()?.Description;
             var copyright = assembly.GetCustomAttribute<AssemblyCopyrightAttribute>()?.Copyright;
 
             var informacoes = new (string Rotulo, string Valor)[]
@@ -32,7 +33,8 @@ namespace MarkdownEditor
                 ("Windows App SDK", VersaoWindowsAppSdk()),
                 ("WebView2 Runtime", VersaoWebView2()),
                 ("Editor Monaco", VersaoMonaco),
-                ("Windows", Environment.OSVersion.Version.ToString())
+                ("Windows", Environment.OSVersion.Version.ToString()),
+                ("Instalado em", Path.TrimEndingDirectorySeparator(AppContext.BaseDirectory))
             };
 
             var conteudo = new StackPanel { Spacing = 16 };
@@ -45,16 +47,20 @@ namespace MarkdownEditor
                 VerticalAlignment = VerticalAlignment.Center,
                 Source = new BitmapImage(new Uri("ms-appx:///Assets/Markdown.ico"))
             });
-            var nomes = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-            nomes.Children.Add(new TextBlock
+            cabecalho.Children.Add(new TextBlock
             {
                 Text = produto,
+                VerticalAlignment = VerticalAlignment.Center,
                 Style = (Style)Application.Current.Resources["SubtitleTextBlockStyle"]
             });
-            if (!string.IsNullOrEmpty(descricao))
-                nomes.Children.Add(new TextBlock { Text = descricao, TextWrapping = TextWrapping.Wrap });
-            cabecalho.Children.Add(nomes);
             conteudo.Children.Add(cabecalho);
+
+            conteudo.Children.Add(new TextBlock
+            {
+                Text = DescricaoSobre,
+                TextWrapping = TextWrapping.Wrap,
+                IsTextSelectionEnabled = true
+            });
 
             var grade = new Grid { ColumnSpacing = 16, RowSpacing = 4 };
             grade.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });

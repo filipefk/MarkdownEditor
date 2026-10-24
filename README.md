@@ -47,7 +47,7 @@ O programa em si não altera o Registro do Windows. Sem o instalador, faça a as
 
 ## Requisitos
 
-✅- Windows 10 versão 1809 ou posterior / Windows 11 (x64).
+- Windows 10 versão 1809 ou posterior / Windows 11 (x64).
 - .NET 10 Runtime.
 - [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) (já incluso no Windows 11).
 - O Windows App SDK vai junto do programa (self-contained); não é preciso instalar o Windows App Runtime.
