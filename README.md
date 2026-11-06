@@ -2,6 +2,13 @@
 
 Aplicação **WinUI 3** (Windows App SDK, .NET 10), com o visual Fluent Design do Windows 11, para navegar pelas pastas do computador, visualizar arquivos Markdown, JSON, XML e TXT com formatação legível e editá-los.
 
+Você quer visualizar e editar arquivos markdown sem ter que instalar uma IDE de desenvolvimento?\
+Você quer formatar JSON e XML contendo dados sensíveis sem ter que colar os dados em um site qualquer?
+
+Seus problemas acabaram, chegou o **Markdown Editor Tabajara**!
+
+Não tem propaganda, não tem coleta de dados, não tem acesso a internet, apenas um visualizador e editor de Markdown
+
 ## Funcionalidades
 
 - **Árvore de pastas** à esquerda, começando por Área de Trabalho, Documentos, Downloads e as unidades do computador. As pastas são carregadas sob demanda ao expandir e só são exibidos os arquivos `.md`, `.markdown`, `.json`, `.xml` e `.txt` (pastas ocultas e de sistema ficam de fora).

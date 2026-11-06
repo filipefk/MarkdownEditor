@@ -183,6 +183,9 @@
   <data name="DescricaoSobre" xml:space="preserve">
     <value>Aplicação WinUI 3 (Windows App SDK, .NET 10), com o visual Fluent Design do Windows 11, para navegar pelas pastas do computador, visualizar arquivos Markdown, JSON, XML e TXT com formatação legível e editá-los.</value>
   </data>
+  <data name="FraseSobre" xml:space="preserve">
+    <value>Você quer visualizar e editar arquivos markdown sem ter que instalar uma IDE de desenvolvimento?&#10;Você quer formatar JSON e XML contendo dados sensíveis sem ter que colar os dados em um site qualquer?&#10;&#10;Seus problemas acabaram, chegou o Markdown Editor Tabajara!&#10;&#10;Não tem propaganda, não tem coleta de dados, apenas um visualizador e editor de Markdown</value>
+  </data>
   <data name="SobreVersao" xml:space="preserve">
     <value>Versão</value>
   </data>

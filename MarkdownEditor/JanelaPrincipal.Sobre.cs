@@ -62,6 +62,14 @@ namespace MarkdownEditor
                 IsTextSelectionEnabled = true
             });
 
+            conteudo.Children.Add(new TextBlock
+            {
+                Text = Textos.Obter("FraseSobre"),
+                TextWrapping = TextWrapping.Wrap,
+                FontStyle = Windows.UI.Text.FontStyle.Italic,
+                IsTextSelectionEnabled = true
+            });
+
             var grade = new Grid { ColumnSpacing = 16, RowSpacing = 4 };
             grade.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             grade.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
