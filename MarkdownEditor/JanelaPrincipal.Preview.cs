@@ -34,6 +34,10 @@ namespace MarkdownEditor
                 preview.SetVirtualHostNameToFolderMapping(HostPreview, PastaWwwroot(), CoreWebView2HostResourceAccessKind.Allow);
                 await preview.AddScriptToExecuteOnDocumentCreatedAsync(ScriptMonitorarEventos);
                 await preview.AddScriptToExecuteOnDocumentCreatedAsync(ScriptIdiomaPrevia);
+                await preview.AddScriptToExecuteOnDocumentCreatedAsync(ScriptImagensPrevia);
+                // Só pedidos de imagem: qualquer outro acesso ao host (iframe, fetch, script) não tem resposta.
+                preview.AddWebResourceRequestedFilter(RaizImagens + "*", CoreWebView2WebResourceContext.Image);
+                preview.WebResourceRequested += CoreWebView2_WebResourceRequested;
                 preview.WebMessageReceived += CoreWebView2_WebMessageReceived;
                 preview.NavigationCompleted += CoreWebView2_NavigationCompleted;
                 preview.NavigationStarting += (_, e) => PermitirSomente(e, PaginaPreview);
@@ -146,6 +150,69 @@ namespace MarkdownEditor
                     break;
             }
         }
+
+        // Imagens do Markdown (relativas à pasta do arquivo ou com caminho absoluto). Só lê arquivos com extensão
+        // de imagem em unidades locais (nunca UNC, para não autenticar em servidores de terceiros). A página não
+        // consegue ler o conteúdo (outra origem, sem CORS): a imagem só é exibida.
+        private async void CoreWebView2_WebResourceRequested(CoreWebView2 sender, CoreWebView2WebResourceRequestedEventArgs e)
+        {
+            var ambiente = sender.Environment;
+            var caminho = CaminhoDaImagem(e.Request.Uri);
+            if (caminho == null || !TiposImagem.TryGetValue(Path.GetExtension(caminho), out var tipo))
+            {
+                e.Response = ambiente.CreateWebResourceResponse(null, 404, "Not Found", string.Empty);
+                return;
+            }
+
+            var adiamento = e.GetDeferral();
+            try
+            {
+                var bytes = await File.ReadAllBytesAsync(caminho);
+                e.Response = ambiente.CreateWebResourceResponse(new MemoryStream(bytes).AsRandomAccessStream(), 200, "OK",
+                    $"Content-Type: {tipo}\r\nCache-Control: no-cache");
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                e.Response = ambiente.CreateWebResourceResponse(null, 404, "Not Found", string.Empty);
+            }
+            finally
+            {
+                adiamento.Complete();
+            }
+        }
+
+        private static string? CaminhoDaImagem(string endereco)
+        {
+            if (!Uri.TryCreate(endereco, UriKind.Absolute, out var uri) || !string.Equals(uri.Host, HostImagens, StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            var caminho = Uri.UnescapeDataString(uri.AbsolutePath.TrimStart('/')).Replace('/', Path.DirectorySeparatorChar);
+            if (caminho.Length < 3 || !char.IsAsciiLetter(caminho[0]) || caminho[1] != ':' || caminho[2] != Path.DirectorySeparatorChar
+                || caminho.IndexOf(':', 2) >= 0)
+                return null;
+
+            try
+            {
+                return Path.GetFullPath(caminho);
+            }
+            catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+            {
+                return null;
+            }
+        }
+
+        // Endereço da pasta do arquivo atual no host das imagens (https://arquivo.local/D%3A/Pasta/), ou null.
+        private string? BaseImagens()
+        {
+            var pasta = _arquivoAtual != null ? Path.GetDirectoryName(_arquivoAtual) : null;
+            if (string.IsNullOrEmpty(pasta))
+                return null;
+
+            var segmentos = pasta.Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries).Select(Uri.EscapeDataString);
+            return RaizImagens + string.Join('/', segmentos) + "/";
+        }
+
+        private string ScriptAjustarImagens() => $"ajustarImagens({JsonSerializer.Serialize(BaseImagens())});";
 
         private static string? LerMensagem(CoreWebView2WebMessageReceivedEventArgs e)
         {
@@ -413,6 +480,7 @@ namespace MarkdownEditor
                 LimparSelecaoArvore();
 
             DefinirArquivoAtual(caminho);
+            await wvwPreview.ExecuteScriptAsync(ScriptAjustarImagens());
             await CarregarNoEditorAsync(texto, caminho, codificacao);
             RegistrarNoHistorico(new EntradaHistorico(caminho, null));
         }
@@ -422,8 +490,9 @@ namespace MarkdownEditor
             try
             {
                 var (texto, codificacao) = await LerArquivoAsync(caminho);
-                await RenderizarAsync(texto, Path.GetFileName(caminho));
+                // Antes de renderizar: as imagens relativas usam a pasta do arquivo atual.
                 DefinirArquivoAtual(caminho);
+                await RenderizarAsync(texto, Path.GetFileName(caminho));
                 await CarregarNoEditorAsync(texto, caminho, codificacao);
             }
             catch (Exception ex)
@@ -439,7 +508,7 @@ namespace MarkdownEditor
 
         private async Task RenderizarAsync(string texto, string nome)
         {
-            var script = $"renderContent({JsonSerializer.Serialize(texto)}, {JsonSerializer.Serialize(nome)});";
+            var script = $"renderContent({JsonSerializer.Serialize(texto)}, {JsonSerializer.Serialize(nome)}); {ScriptAjustarImagens()}";
             await wvwPreview.ExecuteScriptAsync(script);
         }
 
@@ -449,6 +518,7 @@ namespace MarkdownEditor
                 (() => {
                     const rolagem = stage.scrollTop;
                     renderContent({{JsonSerializer.Serialize(texto)}}, {{JsonSerializer.Serialize(nome)}});
+                    {{ScriptAjustarImagens()}}
                     requestAnimationFrame(() => { stage.scrollTop = rolagem; });
                 })();
                 """;

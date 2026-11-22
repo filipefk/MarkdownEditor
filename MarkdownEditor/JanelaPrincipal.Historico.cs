@@ -99,8 +99,8 @@ namespace MarkdownEditor
             }
 
             LimparSelecaoArvore();
-            await RenderizarAsync(entrada.Texto ?? string.Empty, Textos.Obter("NomeTextoColado"));
             DefinirArquivoAtual(null);
+            await RenderizarAsync(entrada.Texto ?? string.Empty, Textos.Obter("NomeTextoColado"));
             await CarregarNoEditorAsync(entrada.Texto ?? string.Empty, null, null);
             return true;
         }

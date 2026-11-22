@@ -15,6 +15,8 @@ namespace MarkdownEditor
     {
         private const string HostPreview = "preview.local";
         private const string PaginaPreview = "https://preview.local/preview-md-json-xml.html";
+        private const string HostImagens = "arquivo.local";
+        private const string RaizImagens = "https://arquivo.local/";
         private const string PaginaEditor = "https://preview.local/editor.html";
         private const string UrlDownloadWebView2 = "https://go.microsoft.com/fwlink/p/?LinkId=2124703";
         private const string NomeAplicativo = "Markdown Editor";
@@ -95,6 +97,39 @@ namespace MarkdownEditor
                 if (e.target instanceof Element && e.target.closest('#newBtn')) window.chrome.webview.postMessage('novo');
             }, true);
             """;
+
+        // Imagens com caminho relativo (ou absoluto do Windows) apontam para https://arquivo.local/<caminho completo>,
+        // servido pelo C# (CoreWebView2_WebResourceRequested). Chamado depois de cada renderContent feito pelo C#.
+        private const string ScriptImagensPrevia = """
+            window.ajustarImagens = (base) => {
+                const absoluto = (caminho) => 'https://arquivo.local/' + caminho.replace(/\\/g, '/').split('/').map(encodeURIComponent).join('/');
+                document.querySelectorAll('#content img[src]').forEach((img) => {
+                    const src = img.getAttribute('src').trim();
+                    let destino = null;
+                    try {
+                        if (/^[a-z]:[\\/]/i.test(src)) destino = absoluto(src);
+                        else if (/^file:\/\/\/[a-z]:/i.test(src)) destino = absoluto(decodeURIComponent(src.slice(8)));
+                        else if (base && !/^([a-z][a-z0-9+.-]*:|\/\/|#)/i.test(src)) destino = new URL(src, base).href;
+                    } catch (e) {
+                        destino = null;
+                    }
+                    if (destino && destino !== img.src) img.src = destino;
+                });
+            };
+            """;
+
+        private static readonly Dictionary<string, string> TiposImagem = new(StringComparer.OrdinalIgnoreCase)
+        {
+            [".png"] = "image/png",
+            [".jpg"] = "image/jpeg",
+            [".jpeg"] = "image/jpeg",
+            [".gif"] = "image/gif",
+            [".webp"] = "image/webp",
+            [".svg"] = "image/svg+xml",
+            [".bmp"] = "image/bmp",
+            [".ico"] = "image/x-icon",
+            [".avif"] = "image/avif"
+        };
 
         private static readonly HashSet<string> ExtensoesSuportadas = new(StringComparer.OrdinalIgnoreCase)
         {
