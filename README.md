@@ -9,6 +9,11 @@ Seus problemas acabaram, chegou o **Markdown Editor Tabajara**!
 
 Não tem propaganda, não tem coleta de dados, não tem acesso a internet, apenas um visualizador e editor de Markdown
 
+<p align="center">
+  <img src="docs/visualizar.png" alt="README.md aberto no modo Visualizar, com a árvore de pastas à esquerda" width="800">
+  <img src="docs/editar.png" alt="README.md aberto no modo Editar, no editor Monaco com realce de sintaxe" width="800">
+</p>
+
 ## Funcionalidades
 
 - **Árvore de pastas** à esquerda, começando por Área de Trabalho, Documentos, Downloads e as unidades do computador. As pastas são carregadas sob demanda ao expandir e só são exibidos os arquivos `.md`, `.markdown`, `.json`, `.xml` e `.txt` (pastas ocultas e de sistema ficam de fora).
